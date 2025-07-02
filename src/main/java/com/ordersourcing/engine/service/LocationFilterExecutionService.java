@@ -2,6 +2,10 @@ package com.ordersourcing.engine.service;
 
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.Expression;
+import com.googlecode.aviator.runtime.function.AbstractFunction;
+import com.googlecode.aviator.runtime.function.FunctionUtils;
+import com.googlecode.aviator.runtime.type.AviatorDouble;
+import com.googlecode.aviator.runtime.type.AviatorObject;
 import com.ordersourcing.engine.dto.OrderDTO;
 import com.ordersourcing.engine.dto.OrderItemDTO;
 import com.ordersourcing.engine.model.Location;
@@ -209,6 +213,9 @@ public class LocationFilterExecutionService {
      */
     @PostConstruct
     public void precomputeActiveFilters() {
+        // Register custom functions with Aviator
+        AviatorEvaluator.addFunction(new CalculateDistanceFunction());
+        
         // Run asynchronously to avoid blocking startup
         CompletableFuture.runAsync(this::refreshPrecomputedResults);
     }
@@ -309,6 +316,15 @@ public class LocationFilterExecutionService {
         public boolean isWithinRadius(double locationLat, double locationLon, double radiusKm) {
             return calculate(locationLat, locationLon) <= radiusKm;
         }
+        
+        // Getter methods for Aviator compatibility
+        public double getCustomerLat() { return customerLat; }
+        public double getCustomerLon() { return customerLon; }
+        
+        // Static method that Aviator can call directly
+        public static double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+            return Math.sqrt(Math.pow(lat1 - lat2, 2) + Math.pow(lon1 - lon2, 2)) * 111.32;
+        }
     }
     
     public static class BusinessContext {
@@ -370,5 +386,26 @@ public class LocationFilterExecutionService {
         public long getComputedExecutions() { return computedExecutions; }
         public long getErrors() { return errors; }
         public LocalDateTime getLastExecution() { return lastExecution; }
+    }
+    
+    /**
+     * Custom Aviator function for calculating distance
+     */
+    public static class CalculateDistanceFunction extends AbstractFunction {
+        @Override
+        public String getName() {
+            return "calculateDistance";
+        }
+        
+        @Override
+        public AviatorObject call(Map<String, Object> env, AviatorObject arg1, AviatorObject arg2, AviatorObject arg3, AviatorObject arg4) {
+            double lat1 = FunctionUtils.getNumberValue(arg1, env).doubleValue();
+            double lon1 = FunctionUtils.getNumberValue(arg2, env).doubleValue();
+            double lat2 = FunctionUtils.getNumberValue(arg3, env).doubleValue();
+            double lon2 = FunctionUtils.getNumberValue(arg4, env).doubleValue();
+            
+            double distance = Math.sqrt(Math.pow(lat1 - lat2, 2) + Math.pow(lon1 - lon2, 2)) * 111.32;
+            return new AviatorDouble(distance);
+        }
     }
 }

@@ -175,7 +175,7 @@ public class BatchSourcingService {
                 
                 // Find optimal fulfillment strategy
                 FulfillmentStrategy strategy = findOptimalFulfillmentStrategy(
-                        locations, inventories, orderItem);
+                        locations, inventories, orderItem, order);
                 
                 if (strategy != null) {
                     // Promise date calculation (use primary location for timing)
@@ -261,7 +261,7 @@ public class BatchSourcingService {
                     inventories != null && !inventories.isEmpty()) {
                     
                     FulfillmentStrategy strategy = findOptimalFulfillmentStrategy(
-                            locations, inventories, orderItem);
+                            locations, inventories, orderItem, order);
                     
                     if (strategy != null) {
                         SourcingResponse.EnhancedFulfillmentPlan plan = buildMultiLocationFulfillmentPlan(
@@ -281,7 +281,7 @@ public class BatchSourcingService {
      * Find optimal multi-location fulfillment strategy for an item
      */
     private FulfillmentStrategy findOptimalFulfillmentStrategy(
-            List<Location> locations, List<Inventory> inventories, OrderItemDTO orderItem) {
+            List<Location> locations, List<Inventory> inventories, OrderItemDTO orderItem, OrderDTO order) {
         
         // Get all viable location-inventory pairs
         List<LocationInventoryPair> availablePairs = new ArrayList<>();

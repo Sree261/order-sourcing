@@ -9,7 +9,7 @@ true, 'system', '1.0', 'DELIVERY_TYPE', 1, 30);
 -- Electronics Security Filter
 INSERT INTO location_filter (id, name, description, filter_script, is_active, created_by, version, category, execution_priority, cache_ttl_minutes) VALUES
 ('ELECTRONICS_SECURE_RULE', 'Electronics Security Filter', 'Security requirements for electronics items',
-'distance.calculate(location.latitude, location.longitude) <= 50', 
+'calculateDistance(location.latitude, location.longitude, order.latitude, order.longitude) <= 50', 
 true, 'security_team', '1.0', 'PRODUCT_SECURITY', 1, 60);
 
 -- Peak Season Capacity Filter  
@@ -21,7 +21,7 @@ true, 'operations_team', '1.0', 'CAPACITY', 2, 15);
 -- Frozen Food Filter
 INSERT INTO location_filter (id, name, description, filter_script, is_active, created_by, version, category, execution_priority, cache_ttl_minutes) VALUES
 ('FROZEN_FOOD_RULE', 'Frozen Food Storage Filter', 'Temperature-controlled storage requirements',
-'distance.calculate(location.latitude, location.longitude) <= 30', 
+'calculateDistance(location.latitude, location.longitude, order.latitude, order.longitude) <= 30', 
 true, 'cold_chain_team', '1.0', 'PRODUCT_CATEGORY', 1, 45);
 
 -- Standard Delivery Filter  
