@@ -1,0 +1,133 @@
+{
+  "tempOrderId": "PARTIAL_ALLOCATION_TEST_001",
+  "fulfillmentPlans": [
+    {
+      "sku": "PHONE123",
+      "requestedQuantity": 200,
+      "deliveryType": "STANDARD",
+      "locationFilterId": "STANDARD_DELIVERY_RULE", 
+      "unitPrice": 299.99,
+      
+      "totalFulfilled": 145,
+      "remainingQuantity": 55,
+      "isPartialFulfillment": true,
+      "isMultiLocationFulfillment": true,
+      "isBackorder": false,
+      
+      "overallScore": 65.2,
+      "splitPenalty": 35.0,
+      "recommendedStrategy": "MULTI_LOCATION",
+      "scoringFactors": "Transit time, processing time, inventory availability; Split penalty: 35.0 points for 3 locations",
+      
+      "locationFulfillments": [
+        {
+          "location": {
+            "id": 4,
+            "name": "Regional Hub",
+            "type": "WAREHOUSE",
+            "latitude": 41.8781,
+            "longitude": -87.6298,
+            "transitTimeDays": 3,
+            "processingTimeHours": 48,
+            "capabilities": ["STANDARD"],
+            "distanceFromCustomer": 847.2
+          },
+          "availableInventory": 75,
+          "allocatedQuantity": 75,
+          "canFulfillCompletely": false,
+          "promiseDates": {
+            "promiseDate": "2025-07-05T17:00:00",
+            "systemProcessingHours": 1,
+            "locationProcessingHours": 48,
+            "carrierTransitHours": 72,
+            "confidenceScore": 0.95,
+            "carrierCode": "UPS"
+          },
+          "locationScore": 85.5,
+          "allocationPriority": 1,
+          "isPrimaryLocation": true,
+          "isAllocatedInOptimalPlan": true,
+          "fulfillmentStatus": "PARTIAL",
+          "warnings": []
+        },
+        {
+          "location": {
+            "id": 1,
+            "name": "Downtown Warehouse", 
+            "type": "WAREHOUSE",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "transitTimeDays": 1,
+            "processingTimeHours": 24,
+            "capabilities": ["STANDARD"],
+            "distanceFromCustomer": 0.0
+          },
+          "availableInventory": 50,
+          "allocatedQuantity": 50,
+          "canFulfillCompletely": false,
+          "promiseDates": {
+            "promiseDate": "2025-07-03T17:00:00",
+            "systemProcessingHours": 1,
+            "locationProcessingHours": 24,
+            "carrierTransitHours": 24,
+            "confidenceScore": 0.98,
+            "carrierCode": "UPS"
+          },
+          "locationScore": 95.2,
+          "allocationPriority": 2,
+          "isPrimaryLocation": false,
+          "isAllocatedInOptimalPlan": true,
+          "fulfillmentStatus": "PARTIAL",
+          "warnings": []
+        },
+        {
+          "location": {
+            "id": 2,
+            "name": "Suburb Store",
+            "type": "STORE", 
+            "latitude": 40.7489,
+            "longitude": -73.9857,
+            "transitTimeDays": 2,
+            "processingTimeHours": 48,
+            "capabilities": ["STANDARD"],
+            "distanceFromCustomer": 4.2
+          },
+          "availableInventory": 20,
+          "allocatedQuantity": 20,
+          "canFulfillCompletely": false,
+          "promiseDates": {
+            "promiseDate": "2025-07-04T17:00:00",
+            "systemProcessingHours": 1,
+            "locationProcessingHours": 48,
+            "carrierTransitHours": 48,
+            "confidenceScore": 0.92,
+            "carrierCode": "UPS"
+          },
+          "locationScore": 78.1,
+          "allocationPriority": 3,
+          "isPrimaryLocation": false,
+          "isAllocatedInOptimalPlan": true,
+          "fulfillmentStatus": "PARTIAL",
+          "warnings": []
+        }
+      ],
+      
+      "warnings": [
+        "Partial fulfillment: 145 of 200 requested units",
+        "Multi-location shipment across 3 locations (penalty: 35.0 points)"
+      ]
+    }
+  ],
+  "metadata": {
+    "totalProcessingTimeMs": 245,
+    "filterExecutionTimeMs": 45,
+    "inventoryFetchTimeMs": 45,
+    "promiseDateCalculationTimeMs": 125,
+    "totalLocationsEvaluated": 15,
+    "filtersExecuted": 1,
+    "processingStrategy": "BATCH",
+    "performanceWarnings": [],
+    "requestTimestamp": "2025-07-02T09:15:00",
+    "responseTimestamp": "2025-07-02T09:15:00.245"
+  }
+}

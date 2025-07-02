@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(mvn clean:*)",
+      "Bash(java:*)",
+      "Bash(rg:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(mvn spring-boot:run:*)",
+      "Bash(timeout 30 mvn spring-boot:run:*)",
+      "Bash(timeout:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)"
+    ],
+    "deny": []
+  }
+}
