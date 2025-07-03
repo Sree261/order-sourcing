@@ -159,9 +159,7 @@ public class SourcingController {
             var filterMetrics = locationFilterService.getFilterMetrics();
             health.put("filterMetrics", Map.of(
                     "totalFilters", filterMetrics.size(),
-                    "averageCacheHitRate", filterMetrics.values().stream()
-                            .mapToDouble(LocationFilterExecutionService.FilterMetrics::getCacheHitRate)
-                            .average().orElse(0.0)
+                    "status", "available"
             ));
             
             return ResponseEntity.ok(health);

@@ -1,8 +1,10 @@
 package com.ordersourcing.engine.service;
 
 import com.ordersourcing.engine.model.*;
+import com.ordersourcing.engine.service.PromiseDateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 public class PromiseDateServiceTest {
 
+    @Autowired
     private PromiseDateService promiseDateService;
     private Order testOrder;
     private OrderItem testOrderItem;
@@ -24,7 +27,6 @@ public class PromiseDateServiceTest {
 
     @BeforeEach
     void setUp() {
-        promiseDateService = new PromiseDateService();
         
         // Create test data
         testOrder = new Order();

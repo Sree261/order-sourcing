@@ -11,7 +11,8 @@
       "Bash(timeout 30 mvn spring-boot:run:*)",
       "Bash(timeout:*)",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cd:*)"
     ],
     "deny": []
   }
