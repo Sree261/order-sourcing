@@ -1,12 +1,91 @@
-# Sample API Calls for Real-Time Order Sourcing
+# Sample API Calls for Order Sourcing Engine
 
-## 1. Single Item PDP Page Request (Same Day Delivery)
+## Overview
+This document provides comprehensive examples of API calls for the Order Sourcing Engine, including the new **Configurable Scoring System** that allows dynamic adjustment of scoring weights for different business scenarios.
+
+## New Features: Configurable Scoring System
+
+### Get All Scoring Configurations
+```bash
+curl -X GET http://localhost:8080/api/sourcing/scoring-configurations \
+  -H "Accept: application/json"
+```
+
+### Get Specific Scoring Configuration
+```bash
+curl -X GET http://localhost:8080/api/sourcing/scoring-configurations/DEFAULT_SCORING \
+  -H "Accept: application/json"
+```
+
+### Get Electronics Premium Scoring Configuration
+```bash
+curl -X GET http://localhost:8080/api/sourcing/scoring-configurations/ELECTRONICS_PREMIUM_SCORING \
+  -H "Accept: application/json"
+```
+
+## Direct Order Sourcing with Configurable Scoring
+
+### 1. Standard Order with Default Scoring
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-realtime \
+curl -X POST http://localhost:8080/api/sourcing/source-direct \
   -H "Content-Type: application/json" \
   -d '{
-    "tempOrderId": "PDP_SESSION_12345",
+    "tempOrderId": "STANDARD_ORDER_001",
+    "customerId": "CUST001",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "orderItems": [
+      {
+        "sku": "PHONE123",
+        "quantity": 2,
+        "deliveryType": "STANDARD",
+        "locationFilterId": "STANDARD_DELIVERY_RULE",
+        "scoringConfigurationId": "DEFAULT_SCORING",
+        "unitPrice": 599.99,
+        "isExpressPriority": false
+      }
+    ],
+    "allowPartialShipments": true,
+    "isExpressPriority": false
+  }'
+```
+
+### 2. Electronics Order with Premium Scoring
+
+```bash
+curl -X POST http://localhost:8080/api/sourcing/source-direct \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tempOrderId": "ELECTRONICS_ORDER_001",
+    "customerId": "CUST002",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "orderItems": [
+      {
+        "sku": "PHONE123",
+        "quantity": 2,
+        "deliveryType": "STANDARD",
+        "locationFilterId": "STANDARD_DELIVERY_RULE",
+        "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
+        "unitPrice": 1299.99,
+        "productCategory": "ELECTRONICS",
+        "isExpressPriority": false
+      }
+    ],
+    "allowPartialShipments": true,
+    "isExpressPriority": false
+  }'
+```
+
+### 3. Express Delivery with Express Scoring
+
+```bash
+curl -X POST http://localhost:8080/api/sourcing/source-direct \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tempOrderId": "EXPRESS_ORDER_001",
+    "customerId": "CUST003",
     "latitude": 40.7128,
     "longitude": -74.0060,
     "orderItems": [
@@ -14,16 +93,90 @@ curl -X POST http://localhost:8080/api/sourcing/source-realtime \
         "sku": "PHONE123",
         "quantity": 1,
         "deliveryType": "SAME_DAY",
-        "locationFilterId": "SDD_FILTER_RULE",
-        "unitPrice": 299.99,
+        "locationFilterId": "STANDARD_DELIVERY_RULE",
+        "scoringConfigurationId": "EXPRESS_DELIVERY_SCORING",
+        "unitPrice": 899.99,
         "isExpressPriority": true
       }
     ],
-    "customerId": "CUST_001",
-    "customerTier": "PREMIUM",
-    "orderType": "WEB"
+    "allowPartialShipments": false,
+    "isExpressPriority": true
   }'
 ```
+
+### 4. Hazmat Order with Specialized Scoring
+
+```bash
+curl -X POST http://localhost:8080/api/sourcing/source-direct \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tempOrderId": "HAZMAT_ORDER_001",
+    "customerId": "CUST004",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "orderItems": [
+      {
+        "sku": "PHONE123",
+        "quantity": 1,
+        "deliveryType": "STANDARD",
+        "locationFilterId": "STANDARD_DELIVERY_RULE",
+        "scoringConfigurationId": "HAZMAT_SCORING",
+        "unitPrice": 299.99,
+        "isHazmat": true,
+        "isExpressPriority": false
+      }
+    ],
+    "allowPartialShipments": true,
+    "isExpressPriority": false
+  }'
+```
+
+## Available Scoring Configurations
+
+The system includes 4 pre-configured scoring strategies:
+
+### 1. DEFAULT_SCORING
+- **Use Case**: General purpose orders
+- **Transit Time Weight**: -10.0 (moderate penalty)
+- **Inventory Weight**: 50.0 (standard preference)
+- **Split Penalty**: 15.0 base (moderate multi-location penalty)
+
+### 2. ELECTRONICS_PREMIUM_SCORING  
+- **Use Case**: High-value electronics with security requirements
+- **Transit Time Weight**: -15.0 (higher penalty for distance)
+- **Inventory Weight**: 60.0 (prefers high-inventory locations)
+- **Split Penalty**: 20.0 base (discourages splitting)
+- **High Value Threshold**: $1000 (vs $500 default)
+
+### 3. EXPRESS_DELIVERY_SCORING
+- **Use Case**: Same-day and next-day delivery optimization
+- **Transit Time Weight**: -20.0 (heavily penalizes distance)
+- **Express Weight**: 50.0 (big bonus for fast locations)
+- **Split Penalty**: 30.0 base (strongly discourages splitting)
+- **Distance Threshold**: 50km (vs 100km default)
+
+### 4. HAZMAT_SCORING
+- **Use Case**: Hazardous materials with compliance requirements
+- **Custom Script**: Includes conditional logic for hazmat items
+- **Confidence Adjustments**: Lower base confidence (70% vs 80%)
+- **Same Day Penalty**: 50.0 (highest urgency penalty)
+- **Script**: `base = location.transitTime * scoring.transitTimeWeight + inventory.ratio * scoring.inventoryWeight; return order.isHazmat ? base * 0.8 : base`
+
+## Scoring Comparison Example
+
+When ordering the same item with different scoring configurations, you'll see different location preferences:
+
+| Location | DEFAULT | ELECTRONICS | EXPRESS | HAZMAT |
+|----------|---------|-------------|---------|--------|
+| Downtown (1 day) | 35.0 | 37.0 | 15.0 | 33.6 |
+| Suburb (2 days) | 20.0 | 14.0 | -10.0 | 16.0 |
+| Regional (3 days) | 10.0 | -1.0 | -25.0 | 8.0 |
+
+This demonstrates how different configurations optimize for different business priorities.
+
+## Legacy API Calls (For Backward Compatibility)
+
+### 5. Single Item PDP Page Request (Same Day Delivery)
 
 ## 2. Multi-Item Cart/Checkout Request (Mixed Delivery Types)
 

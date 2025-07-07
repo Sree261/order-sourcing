@@ -8,6 +8,7 @@ import com.ordersourcing.engine.service.BatchSourcingService;
 import com.ordersourcing.engine.service.LocationFilterExecutionService;
 import com.ordersourcing.engine.service.InventoryApiService;
 import com.ordersourcing.engine.service.PromiseDateService;
+import com.ordersourcing.engine.service.ScoringConfigurationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,9 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     
     @Autowired
     private InventoryRepository inventoryRepository;
+    
+    @Autowired
+    private ScoringConfigurationService scoringConfigurationService;
     
     // Configuration for batch vs sequential decision
     private static final int BATCH_THRESHOLD_ITEMS = 3;
@@ -419,31 +423,26 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
-     * Calculate penalty for splitting shipments across multiple locations
+     * Calculate penalty for splitting shipments across multiple locations using configurable weights
      */
     private double calculateSplitPenalty(int locationCount, OrderItemDTO orderItem) {
         if (locationCount <= 1) return 0.0;
         
-        // Base penalty per additional location
-        double basePenalty = 15.0; // Base penalty points
+        // Calculate total value for this item
+        double totalValue = orderItem.getUnitPrice() != null ? 
+            orderItem.getUnitPrice() * orderItem.getQuantity() : 0.0;
         
-        // Increase penalty for each additional location (exponential)
-        double additionalLocationPenalty = Math.pow(locationCount - 1, 1.5) * 10.0;
+        // Get scoring configuration for this order item
+        var scoringConfig = scoringConfigurationService.getScoringConfigurationForItem(orderItem);
         
-        // High-value items get higher split penalty (customer prefers single shipment)
-        double valuePenalty = 0.0;
-        if (orderItem.getUnitPrice() != null && orderItem.getUnitPrice() > 500.0) {
-            valuePenalty = 20.0;
-        }
+        // Use configurable scoring service
+        double penalty = scoringConfigurationService.calculateSplitPenalty(
+            locationCount, totalValue, scoringConfig, orderItem);
         
-        // Express/same-day items get higher penalty (logistics complexity)
-        double urgencyPenalty = 0.0;
-        if ("SAME_DAY".equals(orderItem.getDeliveryType()) || 
-            "NEXT_DAY".equals(orderItem.getDeliveryType())) {
-            urgencyPenalty = 25.0;
-        }
+        log.debug("Calculated split penalty: {} for {} locations, item: {}, using config: {}", 
+                  penalty, locationCount, orderItem.getSku(), scoringConfig.getId());
         
-        return basePenalty + additionalLocationPenalty + valuePenalty + urgencyPenalty;
+        return penalty;
     }
     
     /**
@@ -508,27 +507,23 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
-     * Calculate location score based on multiple factors
+     * Calculate location score based on multiple factors using configurable weights
      */
     private double calculateLocationScore(Location location, Inventory inventory, OrderItemDTO orderItem) {
-        double score = 0;
+        // Get scoring configuration for this order item
+        var scoringConfig = scoringConfigurationService.getScoringConfigurationForItem(orderItem);
         
-        // Transit time scoring (lower is better)
-        score -= location.getTransitTime() * 10;
-        
-        // Processing time scoring (lower is better)
-        score -= inventory.getProcessingTime() * 5;
-        
-        // Inventory availability scoring (higher is better)
+        // Create context for scoring calculation
+        Map<String, Object> context = new HashMap<>();
         double inventoryRatio = Math.min(1.0, (double) inventory.getQuantity() / orderItem.getQuantity());
-        score += inventoryRatio * 50;
+        context.put("inventoryRatio", inventoryRatio);
+        context.put("processingTime", inventory.getProcessingTime());
         
-        // Express priority boost
-        if (orderItem.getIsExpressPriority() != null && orderItem.getIsExpressPriority()) {
-            if (location.getTransitTime() <= 1) {
-                score += 20; // Boost for fast locations
-            }
-        }
+        // Use configurable scoring service
+        double score = scoringConfigurationService.calculateLocationScore(location, scoringConfig, orderItem, context);
+        
+        log.debug("Calculated location score: {} for location: {}, item: {}, using config: {}", 
+                  score, location.getId(), orderItem.getSku(), scoringConfig.getId());
         
         return score;
     }

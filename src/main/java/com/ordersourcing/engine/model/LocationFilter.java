@@ -48,6 +48,14 @@ public class LocationFilter {
     @Column(name = "cache_ttl_minutes")
     private Integer cacheTtlMinutes = 60; // Cache time-to-live in minutes
     
+    // Scoring-related fields
+    @Lob
+    @Column(name = "scoring_script", columnDefinition = "TEXT")
+    private String scoringScript; // AviatorScript for custom scoring logic
+    
+    @Column(name = "scoring_weights", columnDefinition = "TEXT")
+    private String scoringWeights; // JSON string for weight overrides
+    
     @PrePersist
     @PreUpdate
     protected void onUpdate() {

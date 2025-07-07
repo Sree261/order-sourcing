@@ -8,6 +8,7 @@ import com.ordersourcing.engine.service.PromiseDateService;
 import com.ordersourcing.engine.service.BatchSourcingService;
 import com.ordersourcing.engine.service.InventoryApiService;
 import com.ordersourcing.engine.service.LocationFilterExecutionService;
+import com.ordersourcing.engine.service.ScoringConfigurationService;
 import com.ordersourcing.engine.repository.LocationFilterRepository;
 import com.ordersourcing.engine.dto.OrderDTO;
 import com.ordersourcing.engine.dto.OrderItemDTO;
@@ -46,6 +47,28 @@ public class SourcingController {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private ScoringConfigurationService scoringConfigurationService;
+
+    @PostMapping("/source-direct")
+    public ResponseEntity<?> sourceOrderDirect(@Valid @RequestBody OrderDTO orderDTO) {
+        try {
+            log.info("Received order sourcing request: {}", orderDTO);
+            SourcingResponse response = batchSourcingService.sourceOrder(orderDTO);
+
+            if (response.getFulfillmentPlans().isEmpty()) {
+                return ResponseEntity.ok()
+                    .body(Map.of("message", "No fulfillment plans could be generated for the order"));
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error processing order sourcing request", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "An error occurred while processing the request: " + e.getMessage()));
+        }
+    }
 
     @PostMapping("/source")
     public ResponseEntity<?> sourceOrder(@RequestParam Integer orderId) {
@@ -252,5 +275,33 @@ public class SourcingController {
             .orderItems(orderItemDTOs)
             .requestTimestamp(LocalDateTime.now())
             .build();
+    }
+
+    @GetMapping("/scoring-configurations")
+    public ResponseEntity<?> getScoringConfigurations() {
+        try {
+            return ResponseEntity.ok(scoringConfigurationService.getAllActiveScoringConfigurations());
+        } catch (Exception e) {
+            log.error("Error retrieving scoring configurations", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to retrieve scoring configurations: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/scoring-configurations/{configId}")
+    public ResponseEntity<?> getScoringConfiguration(@PathVariable String configId) {
+        try {
+            var config = scoringConfigurationService.getScoringConfiguration(configId);
+            if (config.isPresent()) {
+                return ResponseEntity.ok(config.get());
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Scoring configuration not found: " + configId));
+            }
+        } catch (Exception e) {
+            log.error("Error retrieving scoring configuration: {}", configId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to retrieve scoring configuration: " + e.getMessage()));
+        }
     }
 }

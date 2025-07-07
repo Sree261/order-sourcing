@@ -27,6 +27,8 @@ public class OrderItemDTO {
     @NotBlank(message = "Location filter ID is required")
     private String locationFilterId; // e.g., "SDD_FILTER_RULE", "ELECTRONICS_SECURE_RULE"
     
+    private String scoringConfigurationId; // e.g., "DEFAULT_SCORING", "ELECTRONICS_PREMIUM_SCORING"
+    
     // Additional metadata for filtering and promise date calculation
     private String productCategory; // For category-specific filtering
     private Double unitPrice; // For value-based security filtering
@@ -50,8 +52,8 @@ public class OrderItemDTO {
     
     @Override
     public String toString() {
-        return String.format("OrderItemDTO{sku='%s', quantity=%d, deliveryType='%s', locationFilterId='%s'}", 
-                           sku, quantity, deliveryType, locationFilterId);
+        return String.format("OrderItemDTO{sku='%s', quantity=%d, deliveryType='%s', locationFilterId='%s', scoringConfigurationId='%s'}", 
+                           sku, quantity, deliveryType, locationFilterId, scoringConfigurationId);
     }
     
     // Helper method to check if item needs special security

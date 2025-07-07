@@ -21,7 +21,11 @@ public class CacheConfig {
             "locationScores",
             "locationFilters",
             "carrierConfigs",
-            "inventory"
+            "inventory",
+            "scoringConfigs",
+            "defaultScoringConfig",
+            "scoringConfigsByCategory",
+            "allActiveScoringConfigs"
         ));
         return cacheManager;
     }

@@ -13,6 +13,7 @@ import com.ordersourcing.engine.model.LocationFilter;
 import com.ordersourcing.engine.repository.LocationFilterRepository;
 import com.ordersourcing.engine.repository.LocationRepository;
 import com.ordersourcing.engine.service.LocationFilterExecutionService;
+import com.ordersourcing.engine.service.ScoringConfigurationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -35,6 +36,9 @@ public class LocationFilterExecutionServiceImpl implements LocationFilterExecuti
     
     @Autowired
     private LocationRepository locationRepository;
+    
+    @Autowired
+    private ScoringConfigurationService scoringConfigurationService;
     
     // Pre-computed filter results cache
     private final Map<String, Set<Integer>> precomputedResults = new ConcurrentHashMap<>();
@@ -107,6 +111,65 @@ public class LocationFilterExecutionServiceImpl implements LocationFilterExecuti
     }
     
     /**
+     * Execute scoring-aware location filter with OrderItemDTO context
+     */
+    public List<Location> executeLocationFilterWithScoring(String filterId, OrderDTO orderContext, OrderItemDTO orderItem) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            // Get filter configuration
+            Optional<LocationFilter> filterOpt = locationFilterRepository.findByIdAndIsActiveTrue(filterId);
+            if (filterOpt.isEmpty()) {
+                log.warn("Location filter not found or inactive: {}", filterId);
+                return Collections.emptyList();
+            }
+            
+            LocationFilter filter = filterOpt.get();
+            
+            // Execute script with scoring context
+            List<Location> result = executeFilterScriptWithScoring(filter, orderContext, orderItem);
+            
+            recordMetrics(filterId, System.currentTimeMillis() - startTime, "COMPUTED_WITH_SCORING");
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Error executing location filter with scoring: {}", filterId, e);
+            recordMetrics(filterId, System.currentTimeMillis() - startTime, "ERROR");
+            return Collections.emptyList();
+        }
+    }
+    
+    /**
+     * Execute filter script with scoring context
+     */
+    private List<Location> executeFilterScriptWithScoring(LocationFilter filter, OrderDTO orderContext, OrderItemDTO orderItem) {
+        List<Location> allLocations = locationRepository.findAll();
+        List<Location> filteredLocations = new ArrayList<>();
+        
+        // Get or compile expression
+        Expression compiledExpression = getCompiledExpression(filter);
+        if (compiledExpression == null) {
+            return Collections.emptyList();
+        }
+        
+        for (Location location : allLocations) {
+            try {
+                Map<String, Object> env = createExecutionEnvironment(location, orderContext, orderItem);
+                Boolean result = (Boolean) compiledExpression.execute(env);
+                
+                if (result != null && result) {
+                    filteredLocations.add(location);
+                }
+            } catch (Exception e) {
+                log.warn("Filter execution failed for location {} with filter {}: {}", 
+                        location.getId(), filter.getId(), e.getMessage());
+            }
+        }
+        
+        return filteredLocations;
+    }
+    
+    /**
      * Execute filter script with enhanced context
      */
     private List<Location> executeFilterScript(LocationFilter filter, OrderDTO orderContext) {
@@ -121,7 +184,7 @@ public class LocationFilterExecutionServiceImpl implements LocationFilterExecuti
         
         for (Location location : allLocations) {
             try {
-                Map<String, Object> env = createExecutionEnvironment(location, orderContext);
+                Map<String, Object> env = createExecutionEnvironment(location, orderContext, null);
                 Boolean result = (Boolean) compiledExpression.execute(env);
                 
                 if (result != null && result) {
@@ -139,7 +202,7 @@ public class LocationFilterExecutionServiceImpl implements LocationFilterExecuti
     /**
      * Create rich execution environment for script
      */
-    private Map<String, Object> createExecutionEnvironment(Location location, OrderDTO orderContext) {
+    private Map<String, Object> createExecutionEnvironment(Location location, OrderDTO orderContext, OrderItemDTO orderItem) {
         Map<String, Object> env = new HashMap<>();
         
         // Location context
@@ -161,7 +224,53 @@ public class LocationFilterExecutionServiceImpl implements LocationFilterExecuti
         // Business context
         env.put("business", new BusinessContext());
         
+        // Scoring context - if orderItem is provided, add scoring weights
+        if (orderItem != null) {
+            env.put("scoring", createScoringContext(orderItem));
+        } else {
+            // Add default scoring weights
+            env.put("scoring", createDefaultScoringContext());
+        }
+        
         return env;
+    }
+    
+    /**
+     * Create scoring context for script execution
+     */
+    private Map<String, Object> createScoringContext(OrderItemDTO orderItem) {
+        try {
+            var scoringConfig = scoringConfigurationService.getScoringConfigurationForItem(orderItem);
+            return scoringConfigurationService.getScoringWeightsAsMap(scoringConfig);
+        } catch (Exception e) {
+            log.warn("Failed to create scoring context for order item: {}", orderItem.getSku(), e);
+            return createDefaultScoringContext();
+        }
+    }
+    
+    /**
+     * Create default scoring context
+     */
+    private Map<String, Object> createDefaultScoringContext() {
+        Map<String, Object> defaultScoring = new HashMap<>();
+        defaultScoring.put("transitTimeWeight", -10.0);
+        defaultScoring.put("processingTimeWeight", -5.0);
+        defaultScoring.put("inventoryWeight", 50.0);
+        defaultScoring.put("expressWeight", 20.0);
+        defaultScoring.put("splitPenaltyBase", 15.0);
+        defaultScoring.put("splitPenaltyExponent", 1.5);
+        defaultScoring.put("splitPenaltyMultiplier", 10.0);
+        defaultScoring.put("highValueThreshold", 500.0);
+        defaultScoring.put("highValuePenalty", 20.0);
+        defaultScoring.put("sameDayPenalty", 25.0);
+        defaultScoring.put("nextDayPenalty", 15.0);
+        defaultScoring.put("distanceWeight", -0.5);
+        defaultScoring.put("distanceThreshold", 100.0);
+        defaultScoring.put("baseConfidence", 0.8);
+        defaultScoring.put("peakSeasonAdjustment", -0.1);
+        defaultScoring.put("weatherAdjustment", -0.05);
+        defaultScoring.put("hazmatAdjustment", -0.15);
+        return defaultScoring;
     }
     
     private Map<String, Object> createTimeContext(LocalDateTime now) {

@@ -62,3 +62,83 @@ INSERT INTO inventory (location_id, sku, quantity, processing_time) VALUES
 (4, 'LAPTOP456', 35, 2),
 (5, 'TABLET789', 60, 1),
 (5, 'HEADPHONES101', 80, 1);
+
+-- Insert sample ScoringConfiguration data
+
+-- Default Scoring Configuration
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, created_by, version, category, 
+    transit_time_weight, processing_time_weight, inventory_weight, express_weight,
+    split_penalty_base, split_penalty_exponent, split_penalty_multiplier,
+    high_value_threshold, high_value_penalty, same_day_penalty, next_day_penalty,
+    distance_weight, distance_threshold, base_confidence, peak_season_adjustment,
+    weather_adjustment, hazmat_adjustment, execution_priority, cache_ttl_minutes
+) VALUES (
+    'DEFAULT_SCORING', 'Default Scoring Configuration', 
+    'Standard scoring weights for general order fulfillment', 
+    true, 'system', '1.0', 'DEFAULT',
+    -10.0, -5.0, 50.0, 20.0,
+    15.0, 1.5, 10.0,
+    500.0, 20.0, 25.0, 15.0,
+    -0.5, 100.0, 0.8, -0.1,
+    -0.05, -0.15, 1, 60
+);
+
+-- Electronics Premium Scoring Configuration
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, created_by, version, category,
+    transit_time_weight, processing_time_weight, inventory_weight, express_weight,
+    split_penalty_base, split_penalty_exponent, split_penalty_multiplier,
+    high_value_threshold, high_value_penalty, same_day_penalty, next_day_penalty,
+    distance_weight, distance_threshold, base_confidence, peak_season_adjustment,
+    weather_adjustment, hazmat_adjustment, execution_priority, cache_ttl_minutes
+) VALUES (
+    'ELECTRONICS_PREMIUM_SCORING', 'Electronics Premium Scoring', 
+    'Enhanced scoring for high-value electronics with stricter security requirements', 
+    true, 'security_team', '1.0', 'ELECTRONICS',
+    -15.0, -8.0, 60.0, 30.0,
+    20.0, 1.8, 12.0,
+    1000.0, 30.0, 35.0, 25.0,
+    -0.8, 75.0, 0.85, -0.15,
+    -0.08, -0.20, 2, 30
+);
+
+-- Express Delivery Scoring Configuration
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, created_by, version, category,
+    transit_time_weight, processing_time_weight, inventory_weight, express_weight,
+    split_penalty_base, split_penalty_exponent, split_penalty_multiplier,
+    high_value_threshold, high_value_penalty, same_day_penalty, next_day_penalty,
+    distance_weight, distance_threshold, base_confidence, peak_season_adjustment,
+    weather_adjustment, hazmat_adjustment, execution_priority, cache_ttl_minutes
+) VALUES (
+    'EXPRESS_DELIVERY_SCORING', 'Express Delivery Scoring', 
+    'Optimized scoring for same-day and next-day delivery requirements', 
+    true, 'logistics_team', '1.0', 'EXPRESS',
+    -20.0, -10.0, 40.0, 50.0,
+    30.0, 2.0, 15.0,
+    300.0, 15.0, 40.0, 30.0,
+    -1.0, 50.0, 0.75, -0.20,
+    -0.10, -0.25, 3, 15
+);
+
+-- Hazmat Scoring Configuration  
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, created_by, version, category,
+    transit_time_weight, processing_time_weight, inventory_weight, express_weight,
+    split_penalty_base, split_penalty_exponent, split_penalty_multiplier,
+    high_value_threshold, high_value_penalty, same_day_penalty, next_day_penalty,
+    distance_weight, distance_threshold, base_confidence, peak_season_adjustment,
+    weather_adjustment, hazmat_adjustment, execution_priority, cache_ttl_minutes,
+    custom_scoring_script
+) VALUES (
+    'HAZMAT_SCORING', 'Hazmat Material Scoring', 
+    'Specialized scoring for hazardous materials with compliance requirements', 
+    true, 'compliance_team', '1.0', 'HAZMAT',
+    -12.0, -7.0, 45.0, 25.0,
+    25.0, 1.6, 12.0,
+    200.0, 25.0, 50.0, 40.0,
+    -0.6, 80.0, 0.70, -0.12,
+    -0.15, -0.30, 4, 45,
+    'base = location.transitTime * scoring.transitTimeWeight + inventory.ratio * scoring.inventoryWeight; return order.isHazmat ? base * 0.8 : base'
+);
