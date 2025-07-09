@@ -14,10 +14,8 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager();
         cacheManager.setCacheNames(java.util.Arrays.asList(
-            "workflows",
             "locations", 
             "inventories",
-            "compiledExpressions",
             "locationScores",
             "locationFilters",
             "carrierConfigs",

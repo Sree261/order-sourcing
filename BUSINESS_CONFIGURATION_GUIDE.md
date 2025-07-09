@@ -1,8 +1,8 @@
-# Business Configuration Guide: Dynamic Order Sourcing with Configurable Scoring
+# Business Configuration Guide: Order Sourcing Engine
 
 ## Overview
 
-The Order Sourcing Engine provides a powerful **Configurable Scoring System** that allows businesses to dynamically adjust how locations are selected for order fulfillment. Instead of relying on hard-coded business rules, the system enables real-time configuration of scoring weights to optimize for different business scenarios, product types, and market conditions.
+The Order Sourcing Engine provides a powerful **Configurable Scoring System** that allows businesses to dynamically adjust how locations are selected for order fulfillment. This guide explains how to customize the order routing process to optimize for different business scenarios, product types, and market conditions.
 
 ## 🎯 Key Business Benefits
 
@@ -18,307 +18,384 @@ The Order Sourcing Engine provides a powerful **Configurable Scoring System** th
 
 ### 3. **Operational Flexibility**
 - **Peak Season Adjustments**: Automatically adjust for capacity constraints during high-demand periods
-- **Cost Optimization**: Balance between speed, cost, and reliability based on business priorities
-- **Performance Monitoring**: Track how different configurations impact KPIs like delivery time and cost
+- **Geographic Optimization**: Fine-tune location selection based on regional performance
+- **Carrier Integration**: Optimize routing based on carrier performance and costs
 
-## 🏗️ System Architecture & Key Features
+## 🔧 Scoring Configuration System
 
-### **Core Components**
+### Core Scoring Factors
 
-#### **1. Configurable Scoring Engine**
-- **20+ Configurable Parameters**: Transit time, inventory levels, processing capacity, distance, value thresholds
-- **Multi-factor Scoring**: Combines location capabilities, inventory availability, and business constraints
-- **Script-Based Logic**: Advanced users can write custom scoring algorithms using AviatorScript
+The system evaluates locations based on these configurable factors:
 
-#### **2. Location Filtering System**
-- **Rule-Based Filtering**: Pre-filter locations based on delivery type, product requirements, compliance needs
-- **Dynamic Context**: Scripts have access to order details, location capabilities, time factors, and business context
-- **Performance Optimized**: Multi-level caching with intelligent pre-computation
+| Factor | Description | Weight Range | Business Impact |
+|--------|-------------|--------------|-----------------|
+| **Transit Time** | Days to deliver | -20.0 to 0.0 | Faster delivery = higher score |
+| **Processing Time** | Hours to process order | -10.0 to 0.0 | Faster processing = higher score |
+| **Inventory Availability** | Stock level ratio | 0.0 to 100.0 | More inventory = higher score |
+| **Distance** | Geographic proximity | -1.0 to 0.0 | Closer locations = higher score |
+| **Express Priority** | Same-day/next-day bonus | 0.0 to 50.0 | Express-capable locations get bonus |
+| **Split Penalty** | Multi-location penalty | 0.0 to 50.0 | Penalty for splitting orders |
 
-#### **3. Split Penalty Management**
-- **Configurable Penalties**: Adjust costs for splitting orders across multiple locations
-- **Value-Based Logic**: Higher penalties for expensive items that customers prefer in single shipments
-- **Urgency Factors**: Additional penalties for express deliveries to minimize complexity
+### Pre-configured Scoring Profiles
 
-#### **4. Real-time API Integration**
-- **REST APIs**: Easy integration with e-commerce platforms, OMS, and WMS systems
-- **Sub-second Response Times**: Optimized for real-time order processing and PDP page requests
-- **Comprehensive Response Data**: Detailed scoring breakdown, alternative options, and confidence metrics
-
-### **How It Works**
-
-```mermaid
-graph TD
-    A[Order Request] --> B[Load Scoring Configuration]
-    B --> C[Apply Location Filters]
-    C --> D[Calculate Location Scores]
-    D --> E[Apply Split Penalties]
-    E --> F[Select Optimal Strategy]
-    F --> G[Return Fulfillment Plan]
-```
-
-1. **Configuration Loading**: System loads appropriate scoring configuration based on order item properties
-2. **Location Filtering**: Pre-filters locations using AviatorScript rules (distance, capabilities, compliance)
-3. **Score Calculation**: Applies configurable weights to factors like transit time, inventory, processing capacity
-4. **Strategy Optimization**: Evaluates single-location vs multi-location strategies with penalty calculations
-5. **Decision Output**: Returns optimal fulfillment plan with detailed scoring rationale
-
-## 📊 Business Configuration Examples
-
-### **Example 1: E-commerce Electronics Retailer**
-
-**Business Challenge**: High-value electronics require secure handling and fast delivery, but cost optimization is crucial for competitive pricing.
-
-**Configuration Strategy**: `ELECTRONICS_PREMIUM_SCORING`
-
-#### **Key Factors & Weightings**:
-- **Transit Time Weight**: -15.0 (vs -10.0 default)
-  - *Business Logic*: Electronics customers expect fast delivery; heavily penalize distant locations
-- **Inventory Weight**: +60.0 (vs +50.0 default)
-  - *Business Logic*: Prefer locations with high stock levels to avoid stockouts on popular items
-- **High Value Threshold**: $1000 (vs $500 default)
-  - *Business Logic*: Apply extra security measures for premium electronics
-- **Split Penalty Base**: 20.0 (vs 15.0 default)
-  - *Business Logic*: Customers prefer single shipment for electronics purchases
-
-#### **Business Impact**:
-```
-Scenario: Customer orders iPhone 15 Pro ($1299) from NYC
-
-DEFAULT_SCORING Results:
-├── Brooklyn Warehouse (2 days): Score 20.0 ⭐ Selected
-├── Manhattan Store (1 day): Score 35.0 
-└── Newark DC (3 days): Score 10.0
-
-ELECTRONICS_PREMIUM_SCORING Results:
-├── Brooklyn Warehouse (2 days): Score 14.0
-├── Manhattan Store (1 day): Score 37.0 ⭐ Selected  
-└── Newark DC (3 days): Score -1.0
-```
-
-**Outcome**: Customer receives iPhone next day instead of 2 days, improving satisfaction and reducing return risk.
-
-### **Example 2: Grocery Chain with Fresh & Frozen Products**
-
-**Business Challenge**: Fresh and frozen items require specialized cold-chain handling with strict delivery timeframes, while managing operational costs.
-
-**Configuration Strategy**: `COLD_CHAIN_OPTIMIZED_SCORING`
-
-#### **Key Factors & Weightings**:
-- **Distance Weight**: -1.0 (vs -0.5 default)
-  - *Business Logic*: Cold chain integrity degrades with distance; minimize transport time
-- **Processing Time Weight**: -10.0 (vs -5.0 default)
-  - *Business Logic*: Longer processing increases spoilage risk for perishables
-- **Same Day Penalty**: 5.0 (vs 25.0 default)
-  - *Business Logic*: Encourage same-day delivery for fresh items to reduce waste
-- **Custom Scoring Script**: 
-  ```javascript
-  base = location.transitTime * scoring.transitTimeWeight + 
-         inventory.ratio * scoring.inventoryWeight;
-  
-  // Boost for cold-chain certified locations
-  if (location.hasColdChain && order.requiresColdStorage) {
-      base += 25.0;
-  }
-  
-  // Penalty for non-certified locations handling cold items
-  if (!location.hasColdChain && order.requiresColdStorage) {
-      base -= 50.0;
-  }
-  
-  return base;
-  ```
-
-#### **Business Impact**:
-```
-Scenario: Customer orders frozen pizza + fresh produce from suburban Chicago
-
-STANDARD_SCORING Results:
-├── Suburban Store (no cold chain): Score 15.0 ⭐ Selected
-├── Cold Storage DC (1 day): Score 10.0
-└── Regional Hub (2 days): Score 5.0
-
-COLD_CHAIN_OPTIMIZED_SCORING Results:
-├── Suburban Store (no cold chain): Score -35.0 (disqualified)
-├── Cold Storage DC (1 day): Score 35.0 ⭐ Selected
-└── Regional Hub (2 days): Score -45.0 (disqualified)
-```
-
-**Outcome**: Order ships from certified cold storage facility, ensuring product quality and compliance with food safety regulations.
-
-### **Example 3: B2B Industrial Supplier**
-
-**Business Challenge**: Industrial customers prioritize reliability and cost over speed, with tolerance for multi-location shipments if it reduces costs.
-
-**Configuration Strategy**: `B2B_COST_OPTIMIZED_SCORING`
-
-#### **Key Factors & Weightings**:
-- **Transit Time Weight**: -5.0 (vs -10.0 default)
-  - *Business Logic*: B2B customers more flexible on delivery time in exchange for lower costs
-- **Split Penalty Base**: 5.0 (vs 15.0 default)
-  - *Business Logic*: B2B customers accept multiple shipments to optimize inventory costs
-- **Inventory Weight**: +75.0 (vs +50.0 default)
-  - *Business Logic*: Strongly prefer locations with high stock to fulfill large quantity orders
-- **Distance Threshold**: 200km (vs 100km default)
-  - *Business Logic*: Willing to ship from farther locations for better pricing
-
-#### **Business Impact**:
-```
-Scenario: Manufacturing company orders 100 units of industrial equipment
-
-STANDARD_SCORING Results:
-Single Location Strategy:
-├── Local Warehouse (50 units): Score 25.0, PARTIAL fulfillment
-└── Split Penalty: N/A
-
-Multi-Location Strategy:
-├── Local Warehouse (50 units): Score 25.0
-├── Regional DC (50 units): Score 15.0  
-└── Split Penalty: -15.0
-└── Total Score: 25.0 ⭐ Selected (partial fulfillment)
-
-B2B_COST_OPTIMIZED_SCORING Results:
-Single Location Strategy:
-├── Local Warehouse (50 units): Score 37.5, PARTIAL fulfillment
-
-Multi-Location Strategy:
-├── Local Warehouse (50 units): Score 37.5
-├── Regional DC (50 units): Score 27.5
-└── Split Penalty: -5.0
-└── Total Score: 60.0 ⭐ Selected (full fulfillment)
-```
-
-**Outcome**: Customer receives complete order via two shipments at lower total cost, meeting B2B preference for complete fulfillment over speed.
-
-## 🛠️ Configuration Management
-
-### **Available Scoring Configurations**
-
-| Configuration ID | Target Use Case | Key Characteristics |
-|-----------------|----------------|-------------------|
-| `DEFAULT_SCORING` | General e-commerce | Balanced speed/cost optimization |
-| `ELECTRONICS_PREMIUM_SCORING` | High-value electronics | Speed + security focused |
-| `EXPRESS_DELIVERY_SCORING` | Same/next-day delivery | Distance minimization |
-| `HAZMAT_SCORING` | Hazardous materials | Compliance + safety first |
-
-### **Configuration Parameters**
-
-#### **Location Scoring Weights**
-- **transitTimeWeight**: Penalty per day of transit time (typically negative)
-- **processingTimeWeight**: Penalty per hour of processing time (typically negative)
-- **inventoryWeight**: Bonus for inventory availability ratio (typically positive)
-- **expressWeight**: Bonus for express-capable locations (typically positive)
-- **distanceWeight**: Penalty per kilometer distance (typically negative)
-
-#### **Split Penalty Configuration**
-- **splitPenaltyBase**: Base penalty for using multiple locations
-- **splitPenaltyExponent**: Exponential growth factor for additional locations
-- **splitPenaltyMultiplier**: Multiplier for exponential penalty calculation
-
-#### **Value & Urgency Adjustments**
-- **highValueThreshold**: Dollar threshold for high-value item handling
-- **highValuePenalty**: Additional penalty for splitting high-value orders
-- **sameDayPenalty**: Additional penalty for same-day delivery complexity
-- **nextDayPenalty**: Additional penalty for next-day delivery complexity
-
-#### **Confidence Scoring**
-- **baseConfidence**: Starting confidence level (0.0 to 1.0)
-- **peakSeasonAdjustment**: Confidence reduction during peak periods
-- **weatherAdjustment**: Confidence reduction during weather events
-- **hazmatAdjustment**: Confidence reduction for hazardous materials
-
-### **API Integration**
-
-#### **Get Available Configurations**
-```bash
-GET /api/sourcing/scoring-configurations
-```
-
-#### **Use Configuration in Order Sourcing**
-```bash
-POST /api/sourcing/source-direct
+#### 1. **Default Scoring** (`DEFAULT_SCORING`)
+Standard configuration for general order fulfillment:
+```json
 {
-  "orderItems": [{
-    "sku": "PRODUCT123",
-    "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
-    ...
-  }]
+  "transitTimeWeight": -10.0,
+  "processingTimeWeight": -5.0,
+  "inventoryWeight": 50.0,
+  "expressWeight": 20.0,
+  "splitPenaltyBase": 15.0,
+  "distanceWeight": -0.5
 }
 ```
 
-#### **Monitor Configuration Performance**
-```bash
-GET /api/sourcing/scoring-configurations/ELECTRONICS_PREMIUM_SCORING
+#### 2. **Electronics Premium** (`ELECTRONICS_PREMIUM_SCORING`)
+Enhanced configuration for high-value electronics:
+```json
+{
+  "transitTimeWeight": -15.0,
+  "processingTimeWeight": -8.0,
+  "inventoryWeight": 60.0,
+  "expressWeight": 30.0,
+  "splitPenaltyBase": 20.0,
+  "distanceWeight": -0.8,
+  "highValueThreshold": 1000.0,
+  "highValuePenalty": 30.0
+}
 ```
 
-## 📈 Business Optimization Strategies
+#### 3. **Express Delivery** (`EXPRESS_DELIVERY_SCORING`)
+Optimized for same-day and next-day delivery:
+```json
+{
+  "transitTimeWeight": -20.0,
+  "processingTimeWeight": -10.0,
+  "inventoryWeight": 40.0,
+  "expressWeight": 50.0,
+  "splitPenaltyBase": 30.0,
+  "distanceWeight": -1.0,
+  "sameDayPenalty": 40.0,
+  "nextDayPenalty": 30.0
+}
+```
 
-### **Seasonal Adjustments**
-- **Peak Season**: Increase split penalties to reduce operational complexity
-- **Low Demand**: Decrease transit time weights to optimize for cost over speed
-- **Holiday Rush**: Boost express weights to prioritize fast-turnaround locations
+#### 4. **Hazmat Handling** (`HAZMAT_SCORING`)
+Specialized configuration for hazardous materials:
+```json
+{
+  "transitTimeWeight": -12.0,
+  "processingTimeWeight": -7.0,
+  "inventoryWeight": 45.0,
+  "expressWeight": 25.0,
+  "splitPenaltyBase": 25.0,
+  "distanceWeight": -0.6,
+  "hazmatAdjustment": -0.30
+}
+```
 
-### **Product Category Optimization**
-- **Electronics**: High inventory weights + low split penalties for security
-- **Groceries**: Distance minimization + cold chain requirements
-- **Industrial**: Cost optimization + flexible delivery timelines
+## 🏭 Business Use Cases
 
-### **Geographic Considerations**
-- **Urban Areas**: Prioritize local stores for same-day delivery
-- **Rural Areas**: Accept longer transit times for coverage
-- **International**: Compliance and documentation requirements
+### Use Case 1: Peak Season Optimization
 
-### **Performance Monitoring KPIs**
+**Challenge**: During Black Friday/Cyber Monday, some locations become overloaded while others have capacity.
 
-| Metric | Configuration Impact | Optimization Strategy |
-|--------|---------------------|---------------------|
-| **Average Delivery Time** | Transit time weights | Increase weights to prioritize closer locations |
-| **Fulfillment Rate** | Inventory weights | Increase weights to prefer high-stock locations |
-| **Shipping Costs** | Split penalties | Adjust penalties based on cost vs. complexity trade-offs |
-| **Customer Satisfaction** | Express weights | Boost for premium customers or high-value items |
+**Solution**: Create a peak season scoring configuration:
+```sql
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, category,
+    transit_time_weight, processing_time_weight, inventory_weight, express_weight,
+    split_penalty_base, distance_weight, peak_season_adjustment
+) VALUES (
+    'PEAK_SEASON_2024', 'Peak Season Black Friday 2024', 
+    'Adjusted scoring for peak season capacity management', 
+    true, 'SEASONAL',
+    -8.0, -3.0, 70.0, 15.0,
+    10.0, -0.3, -0.20
+);
+```
 
-## 🚀 Getting Started
+**Business Impact**:
+- **Reduced inventory weight** (-8.0 vs -10.0) prioritizes speed over stock levels
+- **Increased inventory weight** (70.0 vs 50.0) ensures availability during high demand
+- **Lower split penalty** (10.0 vs 15.0) allows more flexible fulfillment
+- **Peak season adjustment** (-0.20) accounts for seasonal delays
 
-### **Step 1: Assess Current Performance**
-- Analyze current fulfillment patterns and pain points
-- Identify key business metrics to optimize (speed, cost, reliability)
-- Review product categories and their specific requirements
+### Use Case 2: High-Value Item Security
 
-### **Step 2: Configure Scoring Strategy**
-- Start with existing configurations that match your use case
-- Gradually adjust weights based on business priorities
-- Test changes with A/B testing approach
+**Challenge**: Expensive electronics need secure handling and trusted locations.
 
-### **Step 3: Monitor & Optimize**
-- Track KPI changes after configuration adjustments
-- Collect feedback from operations and customer service teams
-- Iterate based on seasonal patterns and business evolution
+**Solution**: Use Electronics Premium scoring for orders > $1000:
+```json
+{
+  "sku": "LAPTOP_PREMIUM_001",
+  "quantity": 1,
+  "unitPrice": 2499.99,
+  "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
+  "productCategory": "ELECTRONICS_COMPUTER",
+  "specialHandling": "HIGH_VALUE"
+}
+```
 
-### **Step 4: Advanced Customization**
-- Implement custom scoring scripts for complex business logic
-- Integrate with external systems (weather, traffic, inventory forecasts)
-- Develop category-specific configurations for different product lines
+**Business Impact**:
+- **Higher security penalties** for untrusted locations
+- **Stricter distance requirements** for high-value items
+- **Enhanced processing time penalties** for locations with poor security records
 
-## 🎯 Success Metrics
+### Use Case 3: Geographic Expansion
 
-### **Operational Metrics**
-- **Fulfillment Rate**: % of orders completely fulfilled from preferred locations
-- **Average Delivery Time**: Time from order to customer delivery
-- **Shipping Cost per Order**: Total logistics cost including splits and expedites
-- **Inventory Turnover**: Utilization of high-inventory locations
+**Challenge**: New market entry requires testing different location strategies.
 
-### **Customer Experience Metrics**
-- **Delivery Promise Accuracy**: % of orders delivered on promised date
-- **Customer Satisfaction Score**: Feedback on delivery experience
-- **Return Rate**: Impact of delivery speed/quality on returns
-- **Repeat Purchase Rate**: Customer loyalty based on fulfillment experience
+**Solution**: Create region-specific scoring:
+```sql
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, category,
+    transit_time_weight, processing_time_weight, inventory_weight, 
+    distance_weight, distance_threshold
+) VALUES (
+    'WEST_COAST_EXPANSION', 'West Coast Market Entry', 
+    'Testing scoring for new West Coast locations', 
+    true, 'GEOGRAPHIC',
+    -12.0, -6.0, 45.0, 
+    -0.8, 75.0
+);
+```
 
-### **Business Intelligence**
-- **Configuration Performance**: ROI of different scoring strategies
-- **Seasonal Optimization**: Performance variations by time period
-- **Geographic Analysis**: Regional differences in optimal configurations
-- **Product Category Insights**: Category-specific optimization opportunities
+**Business Impact**:
+- **Tighter distance thresholds** (75km vs 100km) for new market testing
+- **Balanced approach** between speed and reliability
+- **A/B testing capability** against default scoring
 
----
+## 📊 Location Filtering System
 
-*The Configurable Scoring System transforms order fulfillment from a static, one-size-fits-all approach to a dynamic, business-intelligent system that adapts to your specific needs and continuously optimizes for your key performance indicators.*
+### Filter Categories
+
+#### 1. **Delivery Type Filters**
+- **Same Day Delivery** (`SDD_FILTER_RULE`): Locations capable of same-day delivery
+- **Standard Delivery** (`STANDARD_DELIVERY_RULE`): General delivery locations
+- **Express Delivery** (`EXPRESS_FILTER_RULE`): Next-day delivery capable locations
+
+#### 2. **Product Category Filters**
+- **Electronics Security** (`ELECTRONICS_SECURE_RULE`): Secure handling facilities
+- **Frozen Food** (`FROZEN_FOOD_RULE`): Cold chain storage locations
+- **Hazmat** (`HAZMAT_FILTER_RULE`): Hazardous material certified locations
+
+#### 3. **Operational Filters**
+- **Peak Season Capacity** (`PEAK_SEASON_RULE`): High-capacity locations during peak times
+- **High Value Items** (`HIGH_VALUE_RULE`): Secure locations for expensive items
+
+### Creating Custom Filters
+
+```sql
+INSERT INTO location_filter (
+    id, name, description, filter_script, is_active, 
+    category, execution_priority, cache_ttl_minutes
+) VALUES (
+    'CUSTOM_SAME_DAY_PRIORITY', 
+    'Custom Same Day Priority Filter', 
+    'Priority locations for same-day delivery in metro areas',
+    'location.transitTime <= 1 && calculateDistance(location.latitude, location.longitude, order.latitude, order.longitude) <= 25',
+    true, 'DELIVERY_TYPE', 1, 30
+);
+```
+
+## 🚀 API Integration Examples
+
+### Example 1: Fashion Retailer - Seasonal Adjustment
+
+```bash
+curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tempOrderId": "FASHION_SUMMER_001",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "orderItems": [
+      {
+        "sku": "SUMMER_DRESS_001",
+        "quantity": 2,
+        "deliveryType": "STANDARD",
+        "locationFilterId": "STANDARD_DELIVERY_RULE",
+        "scoringConfigurationId": "SEASONAL_SUMMER_2024",
+        "unitPrice": 89.99,
+        "productCategory": "FASHION_APPAREL"
+      }
+    ],
+    "customerId": "FASHION_CUST_001",
+    "customerTier": "PREMIUM",
+    "isPeakSeason": true,
+    "orderType": "WEB"
+  }'
+```
+
+### Example 2: Electronics Store - High-Value Order
+
+```bash
+curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tempOrderId": "ELECTRONICS_PREMIUM_001",
+    "latitude": 37.7749,
+    "longitude": -122.4194,
+    "orderItems": [
+      {
+        "sku": "IPHONE_15_PRO",
+        "quantity": 1,
+        "deliveryType": "NEXT_DAY",
+        "locationFilterId": "ELECTRONICS_SECURE_RULE",
+        "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
+        "unitPrice": 1199.99,
+        "productCategory": "ELECTRONICS_MOBILE",
+        "specialHandling": "HIGH_VALUE",
+        "requiresSignature": true
+      }
+    ],
+    "customerId": "ELECTRONICS_CUST_001",
+    "customerTier": "ENTERPRISE",
+    "orderType": "B2B"
+  }'
+```
+
+### Example 3: Grocery Store - Cold Chain Items
+
+```bash
+curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tempOrderId": "GROCERY_FROZEN_001",
+    "latitude": 41.8781,
+    "longitude": -87.6298,
+    "orderItems": [
+      {
+        "sku": "FROZEN_PIZZA_001",
+        "quantity": 5,
+        "deliveryType": "SAME_DAY",
+        "locationFilterId": "FROZEN_FOOD_RULE",
+        "scoringConfigurationId": "COLD_CHAIN_SCORING",
+        "unitPrice": 12.99,
+        "productCategory": "GROCERY_FROZEN",
+        "specialHandling": "COLD_CHAIN",
+        "temperatureRange": "FROZEN"
+      }
+    ],
+    "customerId": "GROCERY_CUST_001",
+    "customerTier": "STANDARD",
+    "orderType": "WEB"
+  }'
+```
+
+## 📈 Performance Monitoring
+
+### Key Metrics to Track
+
+1. **Fulfillment Success Rate**: Percentage of orders successfully fulfilled
+2. **Average Score**: Overall scoring performance across orders
+3. **Split Shipment Rate**: Percentage of orders requiring multiple locations
+4. **Delivery Time Performance**: Actual vs. promised delivery times
+5. **Location Utilization**: Distribution of orders across locations
+
+### Scoring Analysis Query
+
+```sql
+SELECT 
+    sc.name as scoring_config,
+    COUNT(*) as order_count,
+    AVG(fp.overall_score) as avg_score,
+    AVG(fp.total_fulfilled::float / fp.requested_quantity) as fulfillment_rate,
+    COUNT(CASE WHEN fp.is_multi_location_fulfillment THEN 1 END) as split_orders
+FROM fulfillment_plans fp
+JOIN scoring_configuration sc ON fp.scoring_config_id = sc.id
+WHERE fp.created_date >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY sc.name
+ORDER BY avg_score DESC;
+```
+
+## 🔄 Configuration Management
+
+### Best Practices
+
+1. **Version Control**: Always version your scoring configurations
+2. **A/B Testing**: Test new configurations on a subset of orders
+3. **Gradual Rollout**: Implement changes gradually to monitor impact
+4. **Rollback Strategy**: Keep previous configurations active for quick rollback
+5. **Documentation**: Document business rationale for each configuration
+
+### Configuration Deployment Process
+
+```sql
+-- Step 1: Create new configuration (inactive)
+INSERT INTO scoring_configuration (
+    id, name, description, is_active, version, category,
+    transit_time_weight, processing_time_weight, inventory_weight
+) VALUES (
+    'NEW_CONFIG_V2', 'New Configuration Version 2', 
+    'Updated scoring for Q2 2024 optimization', 
+    false, '2.0', 'SEASONAL',
+    -12.0, -6.0, 55.0
+);
+
+-- Step 2: Test with specific order types
+-- (Use API calls with specific scoringConfigurationId)
+
+-- Step 3: Activate new configuration
+UPDATE scoring_configuration 
+SET is_active = true 
+WHERE id = 'NEW_CONFIG_V2';
+
+-- Step 4: Deactivate old configuration
+UPDATE scoring_configuration 
+SET is_active = false 
+WHERE id = 'OLD_CONFIG_V1';
+```
+
+## 📋 Troubleshooting Guide
+
+### Common Issues and Solutions
+
+#### Issue 1: Low Fulfillment Rates
+**Symptoms**: Many orders showing partial fulfillment
+**Diagnosis**: Check inventory weights and thresholds
+**Solution**: Increase inventory weight or adjust minimum thresholds
+
+#### Issue 2: High Split Shipment Rate
+**Symptoms**: Too many orders split across multiple locations
+**Solution**: Increase split penalty or adjust inventory preferences
+
+#### Issue 3: Poor Delivery Performance
+**Symptoms**: Actual delivery times exceed promises
+**Solution**: Adjust transit time and processing time weights
+
+#### Issue 4: Unbalanced Location Utilization
+**Symptoms**: Some locations overloaded, others underutilized
+**Solution**: Adjust distance weights and location capacity factors
+
+### Diagnostic Queries
+
+```sql
+-- Check scoring configuration usage
+SELECT 
+    sc.id,
+    sc.name,
+    COUNT(DISTINCT o.temp_order_id) as order_count,
+    AVG(fp.overall_score) as avg_score
+FROM scoring_configuration sc
+LEFT JOIN fulfillment_plans fp ON fp.scoring_config_id = sc.id
+LEFT JOIN orders o ON o.id = fp.order_id
+WHERE sc.is_active = true
+GROUP BY sc.id, sc.name
+ORDER BY order_count DESC;
+
+-- Analyze fulfillment patterns
+SELECT 
+    location_id,
+    COUNT(*) as fulfillment_count,
+    AVG(location_score) as avg_location_score,
+    AVG(allocated_quantity) as avg_quantity
+FROM location_allocations
+WHERE created_date >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY location_id
+ORDER BY fulfillment_count DESC;
+```
+
+This configuration system provides the flexibility to adapt your order sourcing strategy to changing business needs while maintaining optimal performance and customer satisfaction.

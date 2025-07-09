@@ -77,6 +77,25 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
+     * Simplified sourcing method that returns only essential fulfillment information
+     */
+    public SimplifiedSourcingResponse sourceOrderSimplified(OrderDTO order) {
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            // Use the existing detailed sourcing logic
+            SourcingResponse detailedResponse = sourceOrder(order);
+            
+            // Convert to simplified response
+            return convertToSimplifiedResponse(detailedResponse, startTime);
+            
+        } catch (Exception e) {
+            log.error("Error in simplified order sourcing for order: {}", order.getTempOrderId(), e);
+            return createErrorSimplifiedResponse(order, e, System.currentTimeMillis() - startTime);
+        }
+    }
+    
+    /**
      * Optimized batch processing for multiple items
      */
     private SourcingResponse batchSourceOrder(OrderDTO order, long startTime) {
@@ -740,6 +759,72 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
                         .requestTimestamp(order.getRequestTimestamp())
                         .responseTimestamp(LocalDateTime.now())
                         .build())
+                .build();
+    }
+    
+    /**
+     * Convert detailed response to simplified response
+     */
+    private SimplifiedSourcingResponse convertToSimplifiedResponse(SourcingResponse detailedResponse, long startTime) {
+        List<SimplifiedSourcingResponse.FulfillmentPlan> simplifiedPlans = new ArrayList<>();
+        
+        for (SourcingResponse.EnhancedFulfillmentPlan enhancedPlan : detailedResponse.getFulfillmentPlans()) {
+            List<SimplifiedSourcingResponse.LocationAllocation> locationAllocations = new ArrayList<>();
+            
+            // Only include locations that are actually allocated in the optimal plan
+            for (SourcingResponse.LocationFulfillment locationFulfillment : enhancedPlan.getLocationFulfillments()) {
+                if (locationFulfillment.getIsAllocatedInOptimalPlan() && 
+                    locationFulfillment.getAllocatedQuantity() > 0) {
+                    
+                    SimplifiedSourcingResponse.DeliveryTiming deliveryTiming = 
+                        SimplifiedSourcingResponse.DeliveryTiming.builder()
+                            .estimatedShipDate(locationFulfillment.getPromiseDates().getCarrierPickupTime())
+                            .estimatedDeliveryDate(locationFulfillment.getPromiseDates().getEstimatedDeliveryDate())
+                            .transitTimeDays(locationFulfillment.getLocation().getTransitTimeDays())
+                            .processingTimeHours(locationFulfillment.getLocation().getProcessingTimeHours())
+                            .build();
+                    
+                    SimplifiedSourcingResponse.LocationAllocation allocation = 
+                        SimplifiedSourcingResponse.LocationAllocation.builder()
+                            .locationId(locationFulfillment.getLocation().getId())
+                            .locationName(locationFulfillment.getLocation().getName())
+                            .allocatedQuantity(locationFulfillment.getAllocatedQuantity())
+                            .locationScore(locationFulfillment.getLocationScore())
+                            .deliveryTiming(deliveryTiming)
+                            .build();
+                    
+                    locationAllocations.add(allocation);
+                }
+            }
+            
+            SimplifiedSourcingResponse.FulfillmentPlan simplifiedPlan = 
+                SimplifiedSourcingResponse.FulfillmentPlan.builder()
+                    .sku(enhancedPlan.getSku())
+                    .requestedQuantity(enhancedPlan.getRequestedQuantity())
+                    .totalFulfilled(enhancedPlan.getTotalFulfilled())
+                    .isPartialFulfillment(enhancedPlan.getIsPartialFulfillment())
+                    .overallScore(enhancedPlan.getOverallScore())
+                    .locationAllocations(locationAllocations)
+                    .build();
+            
+            simplifiedPlans.add(simplifiedPlan);
+        }
+        
+        return SimplifiedSourcingResponse.builder()
+                .orderId(detailedResponse.getTempOrderId())
+                .fulfillmentPlans(simplifiedPlans)
+                .processingTimeMs(System.currentTimeMillis() - startTime)
+                .build();
+    }
+    
+    /**
+     * Create simplified error response
+     */
+    private SimplifiedSourcingResponse createErrorSimplifiedResponse(OrderDTO order, Exception e, long processingTime) {
+        return SimplifiedSourcingResponse.builder()
+                .orderId(order.getTempOrderId())
+                .fulfillmentPlans(Collections.emptyList())
+                .processingTimeMs(processingTime)
                 .build();
     }
     

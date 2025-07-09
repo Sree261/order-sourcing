@@ -32,12 +32,4 @@ public interface CarrierConfigurationRepository extends JpaRepository<CarrierCon
     List<CarrierConfiguration> findByDeliveryTypeAndWeekendService(
             @Param("deliveryType") String deliveryType, 
             @Param("weekendRequired") Boolean weekendRequired);
-    
-    @Query("SELECT cc FROM CarrierConfiguration cc WHERE cc.deliveryType = :deliveryType " +
-           "AND cc.supportsHazmat = true ORDER BY cc.carrierPriority ASC")
-    List<CarrierConfiguration> findHazmatCapableCarriers(@Param("deliveryType") String deliveryType);
-    
-    @Query("SELECT cc FROM CarrierConfiguration cc WHERE cc.deliveryType = :deliveryType " +
-           "AND cc.supportsColdChain = true ORDER BY cc.carrierPriority ASC")
-    List<CarrierConfiguration> findColdChainCapableCarriers(@Param("deliveryType") String deliveryType);
 }

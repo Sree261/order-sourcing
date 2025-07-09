@@ -110,64 +110,7 @@ public class LocationFilterExecutionServiceImpl implements LocationFilterExecuti
         });
     }
     
-    /**
-     * Execute scoring-aware location filter with OrderItemDTO context
-     */
-    public List<Location> executeLocationFilterWithScoring(String filterId, OrderDTO orderContext, OrderItemDTO orderItem) {
-        long startTime = System.currentTimeMillis();
-        
-        try {
-            // Get filter configuration
-            Optional<LocationFilter> filterOpt = locationFilterRepository.findByIdAndIsActiveTrue(filterId);
-            if (filterOpt.isEmpty()) {
-                log.warn("Location filter not found or inactive: {}", filterId);
-                return Collections.emptyList();
-            }
-            
-            LocationFilter filter = filterOpt.get();
-            
-            // Execute script with scoring context
-            List<Location> result = executeFilterScriptWithScoring(filter, orderContext, orderItem);
-            
-            recordMetrics(filterId, System.currentTimeMillis() - startTime, "COMPUTED_WITH_SCORING");
-            return result;
-            
-        } catch (Exception e) {
-            log.error("Error executing location filter with scoring: {}", filterId, e);
-            recordMetrics(filterId, System.currentTimeMillis() - startTime, "ERROR");
-            return Collections.emptyList();
-        }
-    }
     
-    /**
-     * Execute filter script with scoring context
-     */
-    private List<Location> executeFilterScriptWithScoring(LocationFilter filter, OrderDTO orderContext, OrderItemDTO orderItem) {
-        List<Location> allLocations = locationRepository.findAll();
-        List<Location> filteredLocations = new ArrayList<>();
-        
-        // Get or compile expression
-        Expression compiledExpression = getCompiledExpression(filter);
-        if (compiledExpression == null) {
-            return Collections.emptyList();
-        }
-        
-        for (Location location : allLocations) {
-            try {
-                Map<String, Object> env = createExecutionEnvironment(location, orderContext, orderItem);
-                Boolean result = (Boolean) compiledExpression.execute(env);
-                
-                if (result != null && result) {
-                    filteredLocations.add(location);
-                }
-            } catch (Exception e) {
-                log.warn("Filter execution failed for location {} with filter {}: {}", 
-                        location.getId(), filter.getId(), e.getMessage());
-            }
-        }
-        
-        return filteredLocations;
-    }
     
     /**
      * Execute filter script with enhanced context

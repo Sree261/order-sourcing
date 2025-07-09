@@ -10,6 +10,7 @@
 /mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/service/ScoringConfigurationService.java
 /mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/service/impl/InventoryApiServiceImpl.java
 /mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/dto/OrderItemDTO.java
+/mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/dto/SimplifiedSourcingResponse.java
 /mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/model/Location.java
 /mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/service/BatchSourcingService.java
 /mnt/c/Learnings/Spring boot/order-sourcing-engine/order-sourcing-engine/src/main/java/com/ordersourcing/engine/model/LocationFilter.java
