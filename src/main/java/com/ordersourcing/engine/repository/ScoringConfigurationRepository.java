@@ -21,16 +21,11 @@ public interface ScoringConfigurationRepository extends JpaRepository<ScoringCon
     
     Optional<ScoringConfiguration> findByIdAndIsActiveTrue(String id);
     
-    @Query("SELECT sc FROM ScoringConfiguration sc WHERE sc.lastModified > :since AND sc.isActive = true")
-    List<ScoringConfiguration> findRecentlyModified(@Param("since") java.time.LocalDateTime since);
     
     @Query("SELECT sc FROM ScoringConfiguration sc WHERE sc.category = :category " +
            "AND sc.isActive = true ORDER BY sc.executionPriority ASC")
     List<ScoringConfiguration> findByCategoryOrderByPriority(@Param("category") String category);
     
-    @Query("SELECT sc FROM ScoringConfiguration sc WHERE sc.customScoringScript IS NOT NULL " +
-           "AND sc.isActive = true ORDER BY sc.executionPriority ASC")
-    List<ScoringConfiguration> findWithCustomScripts();
     
     Optional<ScoringConfiguration> findFirstByIsActiveTrueOrderByExecutionPriorityAsc();
 }

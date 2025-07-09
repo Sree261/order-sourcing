@@ -320,8 +320,8 @@ public class PromiseDateServiceImpl implements PromiseDateService {
                     orderItem.getDeliveryType(), distance, orderItem);
             
             if (carrierOpt.isEmpty()) {
-                return PromiseDateBreakdown.createFallback(
-                        now.plusDays(3), "No suitable carrier found");
+                log.warn("No carrier found for delivery type: {} at distance: {} km", orderItem.getDeliveryType(), distance);
+                return null; // Signal that this delivery mode is not feasible
             }
             
             CarrierConfiguration carrier = carrierOpt.get();
@@ -407,22 +407,21 @@ public class PromiseDateServiceImpl implements PromiseDateService {
                             if (inventoryOpt.isPresent()) {
                                 PromiseDateBreakdown breakdown = calculateEnhancedPromiseDate(
                                         orderItem, location, inventoryOpt.get(), orderContext);
-                                results.put(orderItem.getSku(), breakdown);
-                                break;
+                                if (breakdown != null) {
+                                    results.put(orderItem.getSku(), breakdown);
+                                    break;
+                                }
+                                // Continue to next location if this delivery type is not feasible
                             }
                         }
                     }
                     
-                    // Fallback if no suitable combination found
-                    if (!results.containsKey(orderItem.getSku())) {
-                        results.put(orderItem.getSku(), PromiseDateBreakdown.createFallback(
-                                LocalDateTime.now().plusDays(7), "No suitable location-inventory combination"));
-                    }
+                    // No fallback needed - if no suitable combination found, item won't be in results
+                    // This will result in an empty fulfillment plan for that delivery type
                     
                 } catch (Exception e) {
-                    log.error("Error in batch promise date calculation for SKU: {}", orderItem.getSku(), e);
-                    results.put(orderItem.getSku(), PromiseDateBreakdown.createFallback(
-                            LocalDateTime.now().plusDays(7), "Batch calculation error"));
+                    log.error("Error in batch promise date calculation for SKU: {}, excluding from fulfillment", orderItem.getSku(), e);
+                    // Item will be excluded from results, resulting in empty fulfillment plan
                 }
             });
             

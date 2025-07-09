@@ -21,6 +21,4 @@ public interface LocationFilterRepository extends JpaRepository<LocationFilter, 
     
     Optional<LocationFilter> findByIdAndIsActiveTrue(String id);
     
-    @Query("SELECT lf FROM LocationFilter lf WHERE lf.lastModified > :since AND lf.isActive = true")
-    List<LocationFilter> findRecentlyModified(@Param("since") java.time.LocalDateTime since);
 }

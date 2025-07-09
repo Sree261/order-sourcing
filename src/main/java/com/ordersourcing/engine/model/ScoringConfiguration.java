@@ -5,8 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "scoring_configuration")
 @Data
@@ -25,15 +23,6 @@ public class ScoringConfiguration {
     
     @Column(nullable = false)
     private Boolean isActive = true;
-    
-    @Column(name = "created_by")
-    private String createdBy;
-    
-    @Column(name = "last_modified")
-    private LocalDateTime lastModified;
-    
-    @Column(name = "version")
-    private String version;
     
     @Column(name = "category")
     private String category; // e.g., "STANDARD", "PREMIUM", "ELECTRONICS", "HAZMAT"
@@ -82,11 +71,6 @@ public class ScoringConfiguration {
     @Column(name = "distance_threshold")
     private Double distanceThreshold = 100.0; // Distance threshold in kilometers
     
-    // Custom scoring script for advanced logic
-    @Lob
-    @Column(name = "custom_scoring_script", columnDefinition = "TEXT")
-    private String customScoringScript; // AviatorScript for complex scoring logic
-    
     // Confidence scoring adjustments
     @Column(name = "base_confidence")
     private Double baseConfidence = 0.8; // Base confidence score (0.0 to 1.0)
@@ -104,22 +88,11 @@ public class ScoringConfiguration {
     @Column(name = "execution_priority")
     private Integer executionPriority = 1; // Lower number = higher priority
     
-    // Cache configuration
-    @Column(name = "cache_ttl_minutes")
-    private Integer cacheTtlMinutes = 60; // Cache time-to-live in minutes
-    
-    @PrePersist
-    @PreUpdate
-    protected void onUpdate() {
-        this.lastModified = LocalDateTime.now();
-    }
-    
     public ScoringConfiguration(String id, String name, String description) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.isActive = true;
-        this.lastModified = LocalDateTime.now();
     }
     
     public ScoringConfiguration(String id, String name, String description, String category) {

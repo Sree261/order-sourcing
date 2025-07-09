@@ -14,9 +14,6 @@ public class Location {
     private Integer id;
     private String name;
     private int transitTime;
-    private String country;
-    private String city;
-    private String state;
     private double latitude;
     private double longitude;
 }

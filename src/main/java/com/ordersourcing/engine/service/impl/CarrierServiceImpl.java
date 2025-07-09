@@ -31,12 +31,34 @@ public class CarrierServiceImpl implements CarrierService {
     public Optional<CarrierConfiguration> getBestCarrierConfiguration(String deliveryType, 
                                                                      Double distance, 
                                                                      OrderItemDTO orderItem) {
+        log.debug("Finding carrier for delivery type: {}, distance: {} km", deliveryType, distance);
+        
         List<CarrierConfiguration> carriers = carrierConfigurationRepository
                 .findByDeliveryTypeAndMaxDistance(deliveryType, distance);
         
-        return carriers.stream()
-                .filter(carrier -> isCarrierSuitableForItem(carrier, orderItem))
+        log.debug("Found {} carriers for delivery type: {}", carriers.size(), deliveryType);
+        
+        Optional<CarrierConfiguration> result = carriers.stream()
+                .filter(carrier -> {
+                    boolean suitable = isCarrierSuitableForItem(carrier, orderItem);
+                    if (!suitable) {
+                        log.debug("Carrier {} not suitable for item - hazmat: {}, cold: {}, high value: {}", 
+                                carrier.getCarrierCode(), 
+                                orderItem.getIsHazmat(),
+                                orderItem.getRequiresColdStorage(),
+                                orderItem.requiresHighSecurity());
+                    }
+                    return suitable;
+                })
                 .findFirst(); // Already ordered by priority
+        
+        if (result.isEmpty()) {
+            log.warn("No suitable carrier found for delivery type: {} at distance: {} km", deliveryType, distance);
+        } else {
+            log.debug("Selected carrier: {} for delivery type: {}", result.get().getCarrierCode(), deliveryType);
+        }
+        
+        return result;
     }
     
     /**

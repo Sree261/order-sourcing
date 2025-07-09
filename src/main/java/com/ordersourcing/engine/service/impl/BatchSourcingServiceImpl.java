@@ -212,11 +212,17 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
                             orderItem, primaryPair.location, primaryPair.inventory, order);
                     totalPromiseDateTime += (System.currentTimeMillis() - promiseDateStart);
                     
-                    // Build fulfillment plan
-                    Map<String, PromiseDateBreakdown> promiseDateMap = Map.of(orderItem.getSku(), promiseDate);
-                    SourcingResponse.EnhancedFulfillmentPlan plan = buildMultiLocationFulfillmentPlan(
-                            orderItem, strategy, promiseDateMap, order);
-                    fulfillmentPlans.add(plan);
+                    // Only add fulfillment plan if promise date calculation was successful
+                    if (promiseDate != null) {
+                        // Build fulfillment plan
+                        Map<String, PromiseDateBreakdown> promiseDateMap = Map.of(orderItem.getSku(), promiseDate);
+                        SourcingResponse.EnhancedFulfillmentPlan plan = buildMultiLocationFulfillmentPlan(
+                                orderItem, strategy, promiseDateMap, order);
+                        fulfillmentPlans.add(plan);
+                    } else {
+                        log.info("Skipping fulfillment plan for item {} - delivery type {} not feasible", 
+                                orderItem.getSku(), orderItem.getDeliveryType());
+                    }
                 }
                 
             } catch (Exception e) {
@@ -774,7 +780,8 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
             // Only include locations that are actually allocated in the optimal plan
             for (SourcingResponse.LocationFulfillment locationFulfillment : enhancedPlan.getLocationFulfillments()) {
                 if (locationFulfillment.getIsAllocatedInOptimalPlan() && 
-                    locationFulfillment.getAllocatedQuantity() > 0) {
+                    locationFulfillment.getAllocatedQuantity() > 0 &&
+                    locationFulfillment.getPromiseDates() != null) {
                     
                     SimplifiedSourcingResponse.DeliveryTiming deliveryTiming = 
                         SimplifiedSourcingResponse.DeliveryTiming.builder()

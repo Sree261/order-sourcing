@@ -49,10 +49,32 @@ public class PromiseDateBreakdown {
     private String calculationMethod; // CACHED, COMPUTED, FALLBACK
     
     public static PromiseDateBreakdown createFallback(LocalDateTime fallbackDate, String reason) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime estimatedShip = now.plusHours(24); // Default 24 hour processing
+        LocalDateTime estimatedDelivery = fallbackDate.minusDays(1); // 1 day before promise
+        
         return PromiseDateBreakdown.builder()
                 .promiseDate(fallbackDate)
+                .orderProcessingStart(now)
+                .orderProcessingComplete(now.plusHours(2))
+                .locationProcessingStart(now.plusHours(2))
+                .locationProcessingComplete(estimatedShip)
+                .carrierPickupTime(estimatedShip)
+                .estimatedDeliveryDate(estimatedDelivery)
+                .systemProcessingHours(2)
+                .locationProcessingHours(22)
+                .carrierTransitHours(24)
+                .bufferHours(24)
+                .carrierCode("FALLBACK")
+                .serviceLevel("STANDARD")
+                .deliveryType("STANDARD")
+                .isBusinessDaysOnly(true)
+                .isWeatherAdjusted(false)
+                .isPeakSeasonAdjusted(false)
                 .confidenceScore(0.5)
                 .riskFactors(reason)
+                .earliestPossibleDate(estimatedDelivery)
+                .latestAcceptableDate(fallbackDate.plusDays(1))
                 .calculationMethod("FALLBACK")
                 .build();
     }

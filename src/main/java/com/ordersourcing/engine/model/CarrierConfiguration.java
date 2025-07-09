@@ -48,16 +48,11 @@ public class CarrierConfiguration {
     // Service capabilities
     private Boolean weekendPickup = false;
     private Boolean weekendDelivery = false;
-    private Boolean holidayService = false;
-    private Boolean residentialDelivery = true;
-    private Boolean signatureRequired = false;
     
-    // Distance and zone limitations
+    // Distance limitations
     private Double maxDistanceKm; // Maximum service distance
-    private String serviceZones; // Comma-separated zone codes
     
-    // Pricing and priority
-    private Double baseCost;
+    // Priority
     private Integer carrierPriority = 1; // Lower number = higher priority
     
     // Special handling
@@ -68,10 +63,8 @@ public class CarrierConfiguration {
     
     // Performance metrics
     private Double onTimePerformance; // 0.0 to 1.0
-    private Integer averageDelayHours;
     
     // Seasonal adjustments
-    private Boolean isPeakSeasonService = true;
     private Integer peakSeasonDelayDays = 0;
     
     public CarrierConfiguration(String carrierCode, String serviceLevel, String deliveryType, 
