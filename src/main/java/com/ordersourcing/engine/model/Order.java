@@ -12,9 +12,6 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String orderId;
-    private String country;
-    private String city;
-    private String state;
     private double latitude;
     private double longitude;
 

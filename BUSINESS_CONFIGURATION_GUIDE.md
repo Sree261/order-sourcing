@@ -122,16 +122,15 @@ INSERT INTO scoring_configuration (
 - **Lower split penalty** (10.0 vs 15.0) allows more flexible fulfillment
 - **Peak season adjustment** (-0.20) accounts for seasonal delays
 
-### Use Case 2: High-Value Item Security
+### Use Case 2: Electronics Security Handling
 
-**Challenge**: Expensive electronics need secure handling and trusted locations.
+**Challenge**: Electronics items need secure handling and trusted locations.
 
-**Solution**: Use Electronics Premium scoring for orders > $1000:
+**Solution**: Use Electronics Premium scoring for electronics categories:
 ```json
 {
   "sku": "LAPTOP_PREMIUM_001",
   "quantity": 1,
-  "unitPrice": 2499.99,
   "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
   "productCategory": "ELECTRONICS_COMPUTER",
   "specialHandling": "HIGH_VALUE"
@@ -205,7 +204,7 @@ INSERT INTO location_filter (
 ### Example 1: Fashion Retailer - Seasonal Adjustment
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "FASHION_SUMMER_001",
@@ -218,7 +217,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
         "scoringConfigurationId": "SEASONAL_SUMMER_2024",
-        "unitPrice": 89.99,
+        ,
         "productCategory": "FASHION_APPAREL"
       }
     ],
@@ -232,7 +231,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 ### Example 2: Electronics Store - High-Value Order
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "ELECTRONICS_PREMIUM_001",
@@ -245,7 +244,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "NEXT_DAY",
         "locationFilterId": "ELECTRONICS_SECURE_RULE",
         "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
-        "unitPrice": 1199.99,
+        ,
         "productCategory": "ELECTRONICS_MOBILE",
         "specialHandling": "HIGH_VALUE",
         "requiresSignature": true
@@ -260,7 +259,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 ### Example 3: Grocery Store - Cold Chain Items
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "GROCERY_FROZEN_001",
@@ -273,7 +272,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "SAME_DAY",
         "locationFilterId": "FROZEN_FOOD_RULE",
         "scoringConfigurationId": "COLD_CHAIN_SCORING",
-        "unitPrice": 12.99,
+        ,
         "productCategory": "GROCERY_FROZEN",
         "specialHandling": "COLD_CHAIN",
         "temperatureRange": "FROZEN"

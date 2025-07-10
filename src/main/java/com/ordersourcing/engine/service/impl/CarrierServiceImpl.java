@@ -176,12 +176,6 @@ public class CarrierServiceImpl implements CarrierService {
             return false;
         }
         
-        // Check value limits
-        if (carrier.getMaxValueLimit() != null && orderItem.getUnitPrice() != null 
-                && orderItem.getUnitPrice() > carrier.getMaxValueLimit()) {
-            return false;
-        }
-        
         return true;
     }
     

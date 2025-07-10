@@ -101,6 +101,16 @@ CREATE TABLE inventory (
 );
 ```
 
+#### Order
+```sql
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY,
+    order_id VARCHAR(255),
+    latitude DOUBLE,
+    longitude DOUBLE
+);
+```
+
 #### ScoringConfiguration
 ```sql
 CREATE TABLE scoring_configuration (
@@ -304,7 +314,6 @@ flowchart TD
       "quantity": 2,
       "deliveryType": "SAME_DAY",
       "locationFilterId": "SDD_FILTER_RULE",
-      "unitPrice": 299.99,
       "allowPartialFulfillment": true,
       "preferSingleLocation": false,
       "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING"
@@ -427,6 +436,21 @@ flowchart TD
 - **Database Scaling**: Read replicas for inventory queries
 - **Cache Scaling**: Distributed caching with Redis
 - **Load Balancing**: Distribute requests across instances
+
+## Recent Optimizations
+
+### Database Schema Optimization
+- **Order Model Cleanup**: Removed unused fields (`country`, `city`, `state`) from the Order entity to reduce database storage overhead and improve performance
+- **Simplified Entity Structure**: Streamlined Order model now focuses only on essential fields (id, orderId, latitude, longitude) for better maintainability
+
+### Business Logic Simplification
+- **Unit Price Logic Removal**: Eliminated all unit price-based business logic and validations to simplify the system
+- **Category-Based Security**: High-security requirements now determined solely by product category (ELECTRONICS, JEWELRY) rather than monetary value
+- **Simplified Carrier Validation**: Carrier suitability checks no longer consider item value limits
+
+### Performance Improvements
+- **Reduced Table Size**: Order table now uses fewer columns, resulting in faster queries and reduced memory usage
+- **Cleaner Data Model**: Elimination of unused fields and simplified business logic improves code clarity and reduces potential confusion
 
 ## Future Enhancements
 

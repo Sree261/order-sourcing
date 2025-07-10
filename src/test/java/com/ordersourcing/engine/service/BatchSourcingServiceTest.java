@@ -18,7 +18,9 @@ import static org.junit.jupiter.api.Assertions.*;
     "inventory.api.base-url=http://mock-inventory-api:8080/api/inventory",
     "inventory.api.timeout=5000"
 })
-public class BatchSourcingServiceTest {
+public class
+
+BatchSourcingServiceTest {
 
     @Autowired
     private BatchSourcingService batchSourcingService;
@@ -52,7 +54,6 @@ public class BatchSourcingServiceTest {
                         .quantity(1)
                         .deliveryType("STANDARD")
                         .locationFilterId("STANDARD_DELIVERY_RULE")
-                        .unitPrice(299.99)
                         .build()
                 ))
                 .build();
@@ -69,14 +70,12 @@ public class BatchSourcingServiceTest {
                         .quantity(2)
                         .deliveryType("SAME_DAY")
                         .locationFilterId("SDD_FILTER_RULE")
-                        .unitPrice(299.99)
                         .build(),
                     OrderItemDTO.builder()
                         .sku("LAPTOP456")
                         .quantity(1)
                         .deliveryType("NEXT_DAY")
                         .locationFilterId("ELECTRONICS_SECURE_RULE")
-                        .unitPrice(1299.99)
                         .productCategory("ELECTRONICS")
                         .build(),
                     OrderItemDTO.builder()
@@ -84,7 +83,6 @@ public class BatchSourcingServiceTest {
                         .quantity(3)
                         .deliveryType("STANDARD")
                         .locationFilterId("STANDARD_DELIVERY_RULE")
-                        .unitPrice(99.99)
                         .build()
                 ))
                 .isPeakSeason(true)
@@ -219,10 +217,10 @@ public class BatchSourcingServiceTest {
     }
 
     @Test
-    void testHighValueOrderHandling() {
-        // Test handling of high-value orders
-        OrderDTO highValueOrder = OrderDTO.builder()
-                .tempOrderId("HIGH_VALUE_001")
+    void testElectronicsSecurityHandling() {
+        // Test handling of electronics orders that require security
+        OrderDTO electronicsOrder = OrderDTO.builder()
+                .tempOrderId("ELECTRONICS_001")
                 .latitude(40.7128)
                 .longitude(-74.0060)
                 .orderItems(Arrays.asList(
@@ -231,17 +229,16 @@ public class BatchSourcingServiceTest {
                         .quantity(1)
                         .deliveryType("NEXT_DAY")
                         .locationFilterId("ELECTRONICS_SECURE_RULE")
-                        .unitPrice(2500.0) // High value
+                        .productCategory("ELECTRONICS_COMPUTER")
                         .build()
                 ))
                 .build();
         
-        assertTrue(highValueOrder.isHighValueOrder(), "Order should be identified as high value");
-        
-        // High value orders should use security-focused filters
-        OrderItemDTO item = highValueOrder.getOrderItems().get(0);
+        // Electronics orders should use security-focused filters
+        OrderItemDTO item = electronicsOrder.getOrderItems().get(0);
         assertEquals("ELECTRONICS_SECURE_RULE", item.getLocationFilterId(), 
-            "High value electronics should use security filter");
+            "Electronics items should use security filter");
+        assertTrue(item.requiresHighSecurity(), "Electronics items should require high security");
     }
 
     @Test
@@ -367,7 +364,6 @@ public class BatchSourcingServiceTest {
                     .quantity((i % 3) + 1)
                     .deliveryType(deliveryTypes[i % deliveryTypes.length])
                     .locationFilterId(filters[i % filters.length])
-                    .unitPrice(99.99 + (i * 50))
                     .build());
         }
         

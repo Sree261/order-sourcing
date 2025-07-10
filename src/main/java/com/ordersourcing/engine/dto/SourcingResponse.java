@@ -30,7 +30,6 @@ public class SourcingResponse {
         private Integer requestedQuantity;
         private String deliveryType;
         private String locationFilterId;
-        private Double unitPrice;
         
         // Fulfillment Summary
         private Integer totalFulfilled;

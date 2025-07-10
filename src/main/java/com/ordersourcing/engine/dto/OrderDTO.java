@@ -79,21 +79,11 @@ public class OrderDTO {
         return orderItems.stream().mapToInt(OrderItemDTO::getQuantity).sum();
     }
     
-    public double getTotalValue() {
-        return orderItems.stream()
-                .mapToDouble(item -> (item.getUnitPrice() != null ? item.getUnitPrice() : 0.0) * item.getQuantity())
-                .sum();
-    }
-    
     public boolean hasMultipleDeliveryTypes() {
         return orderItems.stream()
                 .map(OrderItemDTO::getDeliveryType)
                 .distinct()
                 .count() > 1;
-    }
-    
-    public boolean isHighValueOrder() {
-        return getTotalValue() > 500.0;
     }
     
     public boolean isLargeOrder() {

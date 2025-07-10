@@ -23,15 +23,13 @@ The simplified API endpoint `/api/sourcing/source-simplified` returns only the e
       "quantity": 3,
       "deliveryType": "STANDARD",
       "locationFilterId": "STANDARD_DELIVERY_RULE",
-      "unitPrice": 299.99
-    },
+          },
     {
       "sku": "LAPTOP456",
       "quantity": 1,
       "deliveryType": "NEXT_DAY",
       "locationFilterId": "ELECTRONICS_SECURE_RULE",
-      "unitPrice": 1299.99
-    }
+          }
   ],
   "customerId": "CUST_001",
   "customerTier": "PREMIUM",
@@ -205,7 +203,7 @@ Error responses are also simplified:
 
 ### Test Single Item
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "TEST_001",
@@ -217,15 +215,14 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 1,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 299.99
-      }
+              }
     ]
   }'
 ```
 
 ### Test Multi-Item Order
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "TEST_MULTI_001",
@@ -237,15 +234,13 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 2,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 299.99
-      },
+              },
       {
         "sku": "LAPTOP456",
         "quantity": 1,
         "deliveryType": "NEXT_DAY",
         "locationFilterId": "ELECTRONICS_SECURE_RULE",
-        "unitPrice": 1299.99
-      }
+              }
     ]
   }'
 ```

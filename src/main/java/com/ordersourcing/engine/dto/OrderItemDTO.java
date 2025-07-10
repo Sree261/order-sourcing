@@ -31,7 +31,6 @@ public class OrderItemDTO {
     
     // Additional metadata for filtering and promise date calculation
     private String productCategory; // For category-specific filtering
-    private Double unitPrice; // For value-based security filtering
     private Boolean isHazmat; // For hazmat filtering
     private Boolean requiresColdStorage; // For temperature-controlled items
     private String specialHandling; // Additional handling requirements
@@ -58,8 +57,7 @@ public class OrderItemDTO {
     
     // Helper method to check if item needs special security
     public boolean requiresHighSecurity() {
-        return (unitPrice != null && unitPrice > 1000.0) || 
-               (productCategory != null && (productCategory.startsWith("ELECTRONICS") || 
+        return (productCategory != null && (productCategory.startsWith("ELECTRONICS") || 
                                           productCategory.startsWith("JEWELRY")));
     }
     

@@ -8,7 +8,7 @@ This document provides comprehensive API examples for the Order Sourcing Engine,
 
 ### Base URL
 ```
-http://localhost:8080/api/sourcing
+http://localhost:8081/api/sourcing
 ```
 
 ### Available Endpoints
@@ -23,7 +23,7 @@ http://localhost:8080/api/sourcing
 **Use Case**: Product detail page availability check for standard delivery
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "PDP_SINGLE_001",
@@ -35,7 +35,6 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 1,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 299.99,
         "productCategory": "ELECTRONICS_MOBILE"
       }
     ],
@@ -80,7 +79,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: Customer cart with different delivery requirements
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "MIXED_CART_001",
@@ -93,7 +92,6 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "SAME_DAY",
         "locationFilterId": "SDD_FILTER_RULE",
         "scoringConfigurationId": "EXPRESS_DELIVERY_SCORING",
-        "unitPrice": 299.99,
         "productCategory": "ELECTRONICS_MOBILE",
         "isExpressPriority": true
       },
@@ -103,7 +101,6 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "NEXT_DAY",
         "locationFilterId": "ELECTRONICS_SECURE_RULE",
         "scoringConfigurationId": "ELECTRONICS_PREMIUM_SCORING",
-        "unitPrice": 1299.99,
         "productCategory": "ELECTRONICS_COMPUTER",
         "specialHandling": "HIGH_VALUE",
         "requiresSignature": true
@@ -113,7 +110,6 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 3,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 99.99,
         "productCategory": "ELECTRONICS_AUDIO",
         "allowPartialFulfillment": true
       }
@@ -129,7 +125,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: Enterprise customer placing large quantity order
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "B2B_BULK_001",
@@ -142,7 +138,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "STANDARD",
         "locationFilterId": "PEAK_SEASON_RULE",
         "scoringConfigurationId": "B2B_BULK_SCORING",
-        "unitPrice": 280.00,
+        ,
         "productCategory": "ELECTRONICS_MOBILE",
         "allowPartialFulfillment": true,
         "preferSingleLocation": false
@@ -153,7 +149,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "NEXT_DAY",
         "locationFilterId": "ELECTRONICS_SECURE_RULE",
         "scoringConfigurationId": "B2B_BULK_SCORING",
-        "unitPrice": 1200.00,
+        ,
         "productCategory": "ELECTRONICS_COMPUTER",
         "requireFullQuantity": true,
         "specialHandling": "CORPORATE_DELIVERY"
@@ -172,7 +168,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: Frozen food delivery with temperature requirements
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "GROCERY_FROZEN_001",
@@ -185,7 +181,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "SAME_DAY",
         "locationFilterId": "FROZEN_FOOD_RULE",
         "scoringConfigurationId": "COLD_CHAIN_SCORING",
-        "unitPrice": 12.99,
+        ,
         "productCategory": "GROCERY_FROZEN",
         "specialHandling": "COLD_CHAIN",
         "temperatureRange": "FROZEN",
@@ -197,7 +193,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "SAME_DAY",
         "locationFilterId": "FROZEN_FOOD_RULE",
         "scoringConfigurationId": "COLD_CHAIN_SCORING",
-        "unitPrice": 8.99,
+        ,
         "productCategory": "GROCERY_FROZEN",
         "specialHandling": "COLD_CHAIN",
         "temperatureRange": "FROZEN"
@@ -214,7 +210,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: Hazardous materials with compliance requirements
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "HAZMAT_001",
@@ -227,7 +223,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "STANDARD",
         "locationFilterId": "HAZMAT_FILTER_RULE",
         "scoringConfigurationId": "HAZMAT_SCORING",
-        "unitPrice": 45.99,
+        ,
         "productCategory": "ELECTRONICS_BATTERY",
         "specialHandling": "HAZMAT",
         "hazmatClass": "UN3480",
@@ -246,7 +242,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: High-demand period with capacity constraints
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "PEAK_SEASON_001",
@@ -259,7 +255,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "NEXT_DAY",
         "locationFilterId": "PEAK_SEASON_RULE",
         "scoringConfigurationId": "PEAK_SEASON_2024",
-        "unitPrice": 100.00,
+        ,
         "productCategory": "GIFT_CARDS",
         "isExpressPriority": true
       },
@@ -269,7 +265,6 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "STANDARD",
         "locationFilterId": "PEAK_SEASON_RULE",
         "scoringConfigurationId": "PEAK_SEASON_2024",
-        "unitPrice": 299.99,
         "productCategory": "ELECTRONICS_MOBILE",
         "allowPartialFulfillment": true
       }
@@ -289,7 +284,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: Large order requiring multiple locations
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "MULTI_LOCATION_001",
@@ -301,7 +296,6 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 75,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 299.99,
         "productCategory": "ELECTRONICS_MOBILE",
         "allowPartialFulfillment": true,
         "preferSingleLocation": false
@@ -362,7 +356,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 **Use Case**: High-volume order for performance validation
 
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "PERFORMANCE_TEST_001",
@@ -374,36 +368,31 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 5,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 299.99
-      },
+              },
       {
         "sku": "LAPTOP456",
         "quantity": 3,
         "deliveryType": "NEXT_DAY",
         "locationFilterId": "ELECTRONICS_SECURE_RULE",
-        "unitPrice": 1299.99
-      },
+              },
       {
         "sku": "TABLET789",
         "quantity": 8,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 599.99
-      },
+              },
       {
         "sku": "HEADPHONES101",
         "quantity": 12,
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 99.99
-      },
+              },
       {
         "sku": "PHONE123",
         "quantity": 7,
         "deliveryType": "SAME_DAY",
         "locationFilterId": "SDD_FILTER_RULE",
-        "unitPrice": 299.99
-      }
+              }
     ],
     "customerId": "PERF_TEST_USER",
     "customerTier": "STANDARD",
@@ -415,19 +404,19 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 
 ### Get Available Scoring Configurations
 ```bash
-curl -X GET http://localhost:8080/api/sourcing/scoring-configurations \
+curl -X GET http://localhost:8081/api/sourcing/scoring-configurations \
   -H "Accept: application/json"
 ```
 
 ### Get Specific Configuration Details
 ```bash
-curl -X GET http://localhost:8080/api/sourcing/scoring-configurations/ELECTRONICS_PREMIUM_SCORING \
+curl -X GET http://localhost:8081/api/sourcing/scoring-configurations/ELECTRONICS_PREMIUM_SCORING \
   -H "Accept: application/json"
 ```
 
 ### Validate Order Structure
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-realtime/validate \
+curl -X POST http://localhost:8081/api/sourcing/source-realtime/validate \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "VALIDATION_TEST",
@@ -446,7 +435,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-realtime/validate \
 
 ### Health Check
 ```bash
-curl -X GET http://localhost:8080/api/sourcing/source-realtime/health \
+curl -X GET http://localhost:8081/api/sourcing/source-realtime/health \
   -H "Accept: application/json"
 ```
 
@@ -463,7 +452,7 @@ curl -X GET http://localhost:8080/api/sourcing/source-realtime/health \
 
 ### Invalid Location Filter
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "ERROR_TEST_001",
@@ -475,8 +464,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "quantity": 1,
         "deliveryType": "STANDARD",
         "locationFilterId": "INVALID_FILTER_ID",
-        "unitPrice": 299.99
-      }
+              }
     ]
   }'
 ```
@@ -492,7 +480,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 
 ### Missing Required Fields
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "ERROR_TEST_002",
@@ -511,7 +499,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
 ### Test Different Scoring Configurations
 ```bash
 # Configuration A - Default Scoring
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "AB_TEST_A_001",
@@ -524,13 +512,12 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
         "scoringConfigurationId": "DEFAULT_SCORING",
-        "unitPrice": 299.99
-      }
+              }
     ]
   }'
 
 # Configuration B - Custom Scoring
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "AB_TEST_B_001",
@@ -543,8 +530,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "deliveryType": "STANDARD",
         "locationFilterId": "STANDARD_DELIVERY_RULE",
         "scoringConfigurationId": "CUSTOM_TEST_SCORING",
-        "unitPrice": 299.99
-      }
+              }
     ]
   }'
 ```

@@ -298,23 +298,14 @@ public class PromiseDateServiceImpl implements PromiseDateService {
     }
 
     /**
-     * Enhanced promise date calculation with all factors
+     * Simplified promise date calculation: processing time + transit time
      */
     public PromiseDateBreakdown calculateEnhancedPromiseDate(OrderItemDTO orderItem, Location location, 
                                                            Inventory inventory, OrderDTO orderContext) {
-        long startTime = System.currentTimeMillis();
-        
         try {
             LocalDateTime now = LocalDateTime.now();
             
-            // Step 1: System processing time (order validation, payment, etc.)
-            LocalDateTime systemProcessingComplete = calculateSystemProcessingTime(now, orderItem, orderContext);
-            
-            // Step 2: Location processing time (warehouse/store specific)
-            LocalDateTime locationProcessingComplete = calculateLocationProcessingTime(
-                    systemProcessingComplete, location, inventory, orderItem);
-            
-            // Step 3: Get best carrier configuration
+            // Step 1: Get carrier configuration for this delivery type
             double distance = calculateDistance(location, orderContext.getLatitude(), orderContext.getLongitude());
             Optional<CarrierConfiguration> carrierOpt = carrierService.getBestCarrierConfiguration(
                     orderItem.getDeliveryType(), distance, orderItem);
@@ -326,57 +317,32 @@ public class PromiseDateServiceImpl implements PromiseDateService {
             
             CarrierConfiguration carrier = carrierOpt.get();
             
-            // Step 4: Carrier pickup time
-            LocalDateTime carrierPickupTime = carrierService.calculatePickupTime(carrier, locationProcessingComplete);
+            // Step 2: Calculate processing time (inventory processing time in hours)
+            int processingHours = inventory.getProcessingTime() * 24; // Convert days to hours
+            LocalDateTime processingComplete = now.plusHours(processingHours);
             
-            // Step 5: Transit time calculation
-            Integer transitHours = carrierService.calculateTransitTime(carrier, location, 
-                    orderContext.getLatitude(), orderContext.getLongitude(), 
-                    carrierPickupTime, orderContext.getIsPeakSeason()) * 24;
+            // Step 3: Calculate transit time (carrier base transit time in hours)
+            int transitHours = carrier.getBaseTransitDays() * 24; // Convert days to hours
+            LocalDateTime estimatedDeliveryDate = processingComplete.plusHours(transitHours);
             
-            // Step 6: Estimated delivery date
-            LocalDateTime estimatedDeliveryDate = carrierPickupTime.plusHours(transitHours);
+            // Step 4: Promise date = delivery date (no additional buffer)
+            LocalDateTime promiseDate = estimatedDeliveryDate;
             
-            // Step 7: Apply business day and weekend adjustments
-            estimatedDeliveryDate = adjustForBusinessDays(estimatedDeliveryDate, carrier);
-            
-            // Step 8: Add buffer and calculate final promise date
-            LocalDateTime promiseDate = calculateFinalPromiseDate(estimatedDeliveryDate, orderItem.getDeliveryType(), carrier);
-            
-            // Step 9: Apply weather and seasonal adjustments
-            promiseDate = applyEnvironmentalAdjustments(promiseDate, orderContext, orderItem.getDeliveryType());
-            
-            // Build detailed breakdown
+            // Build simple breakdown
             return PromiseDateBreakdown.builder()
                     .promiseDate(promiseDate)
-                    .orderProcessingStart(now)
-                    .orderProcessingComplete(systemProcessingComplete)
-                    .locationProcessingStart(systemProcessingComplete)
-                    .locationProcessingComplete(locationProcessingComplete)
-                    .carrierPickupTime(carrierPickupTime)
+                    .carrierPickupTime(processingComplete)
                     .estimatedDeliveryDate(estimatedDeliveryDate)
-                    .systemProcessingHours((int) ChronoUnit.HOURS.between(now, systemProcessingComplete))
-                    .locationProcessingHours((int) ChronoUnit.HOURS.between(systemProcessingComplete, locationProcessingComplete))
+                    .locationProcessingHours(processingHours)
                     .carrierTransitHours(transitHours)
-                    .bufferHours((int) ChronoUnit.HOURS.between(estimatedDeliveryDate, promiseDate))
                     .carrierCode(carrier.getCarrierCode())
                     .serviceLevel(carrier.getServiceLevel())
                     .deliveryType(orderItem.getDeliveryType())
-                    .isBusinessDaysOnly(!carrier.getWeekendDelivery())
-                    .isWeatherAdjusted(isWeatherSeason())
-                    .isPeakSeasonAdjusted(orderContext.getIsPeakSeason())
-                    .confidenceScore(calculateConfidenceScore(carrier, orderItem, orderContext))
-                    .riskFactors(identifyRiskFactors(carrier, orderItem, orderContext))
-                    .earliestPossibleDate(estimatedDeliveryDate)
-                    .latestAcceptableDate(promiseDate.plusDays(1))
-                    .calculationTimeMs(System.currentTimeMillis() - startTime)
-                    .calculationMethod("COMPUTED")
                     .build();
                     
         } catch (Exception e) {
-            log.error("Error calculating enhanced promise date for item: {}", orderItem.getSku(), e);
-            return PromiseDateBreakdown.createFallback(
-                    LocalDateTime.now().plusDays(5), "Calculation error: " + e.getMessage());
+            log.error("Error calculating promise date for item: {}", orderItem.getSku(), e);
+            return null; // Return null instead of fallback for failed calculations
         }
     }
     
@@ -429,177 +395,10 @@ public class PromiseDateServiceImpl implements PromiseDateService {
         });
     }
     
-    private LocalDateTime calculateSystemProcessingTime(LocalDateTime orderTime, OrderItemDTO orderItem, OrderDTO orderContext) {
-        int processingHours = 1; // Base system processing time
-        
-        // High-value orders need additional verification
-        if (orderContext.isHighValueOrder()) {
-            processingHours += 2;
-        }
-        
-        // Complex orders need more processing
-        if (orderContext.isLargeOrder()) {
-            processingHours += 1;
-        }
-        
-        // Hazmat items need special processing
-        if (orderItem.getIsHazmat() != null && orderItem.getIsHazmat()) {
-            processingHours += 4;
-        }
-        
-        // Express orders get priority processing
-        if (orderItem.getIsExpressPriority() != null && orderItem.getIsExpressPriority()) {
-            processingHours = Math.max(1, processingHours - 1);
-        }
-        
-        return orderTime.plusHours(processingHours);
-    }
-    
-    private LocalDateTime calculateLocationProcessingTime(LocalDateTime startTime, Location location, 
-                                                        Inventory inventory, OrderItemDTO orderItem) {
-        int processingHours = inventory.getProcessingTime() * 24; // Convert days to hours
-        
-        // Store vs warehouse processing differences
-        if (location.getName().toLowerCase().contains("store")) {
-            processingHours += 2; // Stores typically need more time
-        }
-        
-        // Cold storage items need special handling
-        if (orderItem.getRequiresColdStorage() != null && orderItem.getRequiresColdStorage()) {
-            processingHours += 4;
-        }
-        
-        // Large quantities need more processing time
-        if (orderItem.getQuantity() > 10) {
-            processingHours += (orderItem.getQuantity() / 10) * 2;
-        }
-        
-        return startTime.plusHours(processingHours);
-    }
-    
-    private LocalDateTime adjustForBusinessDays(LocalDateTime dateTime, CarrierConfiguration carrier) {
-        if (carrier.getWeekendDelivery()) {
-            return dateTime; // No adjustment needed
-        }
-        
-        // Skip weekends
-        while (dateTime.getDayOfWeek() == DayOfWeek.SATURDAY || 
-               dateTime.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            dateTime = dateTime.plusDays(1);
-        }
-        
-        return dateTime;
-    }
-    
-    private LocalDateTime calculateFinalPromiseDate(LocalDateTime estimatedDelivery, String deliveryType, 
-                                                  CarrierConfiguration carrier) {
-        LocalDateTime promiseDate = estimatedDelivery;
-        
-        // Add delivery-type specific buffers
-        switch (deliveryType.toUpperCase()) {
-            case "SAME_DAY":
-                // Minimal buffer for same day
-                promiseDate = promiseDate.plusHours(2);
-                break;
-            case "NEXT_DAY":
-            case "EXPRESS":
-                // Small buffer for express
-                promiseDate = promiseDate.plusHours(6);
-                break;
-            case "STANDARD":
-                // Standard buffer
-                promiseDate = promiseDate.plusDays(1);
-                break;
-            default:
-                promiseDate = promiseDate.plusDays(2);
-        }
-        
-        // Carrier reliability buffer
-        if (carrier.getOnTimePerformance() < 0.9) {
-            promiseDate = promiseDate.plusHours(12);
-        }
-        
-        return promiseDate;
-    }
-    
-    private LocalDateTime applyEnvironmentalAdjustments(LocalDateTime promiseDate, OrderDTO orderContext, String deliveryType) {
-        // Peak season adjustments
-        if (orderContext.getIsPeakSeason() != null && orderContext.getIsPeakSeason()) {
-            if ("SAME_DAY".equals(deliveryType)) {
-                promiseDate = promiseDate.plusHours(4);
-            } else {
-                promiseDate = promiseDate.plusDays(1);
-            }
-        }
-        
-        // Weather adjustments (simplified - in real implementation, would integrate with weather APIs)
-        if (isWeatherSeason()) {
-            promiseDate = promiseDate.plusHours(6);
-        }
-        
-        return promiseDate;
-    }
     
     private double calculateDistance(Location location, Double customerLat, Double customerLon) {
         return Math.sqrt(Math.pow(location.getLatitude() - customerLat, 2) + 
                         Math.pow(location.getLongitude() - customerLon, 2)) * 111.32; // Approximate km
     }
     
-    private Double calculateConfidenceScore(CarrierConfiguration carrier, OrderItemDTO orderItem, OrderDTO orderContext) {
-        double score = 0.8; // Base confidence
-        
-        // Carrier performance impact
-        if (carrier.getOnTimePerformance() != null) {
-            score *= carrier.getOnTimePerformance();
-        }
-        
-        // Peak season impact
-        if (orderContext.getIsPeakSeason() != null && orderContext.getIsPeakSeason()) {
-            score *= 0.9;
-        }
-        
-        // Weather impact
-        if (isWeatherSeason()) {
-            score *= 0.95;
-        }
-        
-        // Special handling impact
-        if (orderItem.getIsHazmat() != null && orderItem.getIsHazmat()) {
-            score *= 0.85;
-        }
-        
-        return Math.max(0.0, Math.min(1.0, score));
-    }
-    
-    private String identifyRiskFactors(CarrierConfiguration carrier, OrderItemDTO orderItem, OrderDTO orderContext) {
-        List<String> risks = new ArrayList<>();
-        
-        if (carrier.getOnTimePerformance() < 0.9) {
-            risks.add("Carrier reliability below 90%");
-        }
-        
-        if (orderContext.getIsPeakSeason() != null && orderContext.getIsPeakSeason()) {
-            risks.add("Peak season delays possible");
-        }
-        
-        if (isWeatherSeason()) {
-            risks.add("Weather-related delays possible");
-        }
-        
-        if (orderItem.getIsHazmat() != null && orderItem.getIsHazmat()) {
-            risks.add("Hazmat processing delays");
-        }
-        
-        if (orderContext.isLargeOrder()) {
-            risks.add("Large order processing complexity");
-        }
-        
-        return String.join(", ", risks);
-    }
-    
-    private boolean isWeatherSeason() {
-        // Simplified weather check - in real implementation, would integrate with weather APIs
-        int month = LocalDateTime.now().getMonthValue();
-        return month == 12 || month == 1 || month == 2 || (month >= 6 && month <= 8); // Winter or summer extremes
-    }
 }

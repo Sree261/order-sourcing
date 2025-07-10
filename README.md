@@ -40,7 +40,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=test
 
 ### Simplified Sourcing Request
 ```bash
-curl -X POST http://localhost:8080/api/sourcing/source-simplified \
+curl -X POST http://localhost:8081/api/sourcing/source-simplified \
   -H "Content-Type: application/json" \
   -d '{
     "tempOrderId": "ORDER_001",
@@ -51,8 +51,7 @@ curl -X POST http://localhost:8080/api/sourcing/source-simplified \
         "sku": "PHONE123",
         "quantity": 1,
         "deliveryType": "STANDARD",
-        "locationFilterId": "STANDARD_DELIVERY_RULE",
-        "unitPrice": 299.99
+        "locationFilterId": "STANDARD_DELIVERY_RULE"
       }
     ],
     "customerId": "CUST_001",
@@ -144,6 +143,8 @@ The application automatically creates tables and populates sample data on startu
 - **Multi-Location Support**: Handles both single and multi-location fulfillment
 - **Simplified Responses**: Clean, minimal JSON for frontend integration
 - **Performance Optimized**: Sub-50ms response times with caching and parallel processing
+- **Database Optimized**: Streamlined data models with unused fields removed for better performance
+- **Simplified Business Logic**: Unit price-based validations removed for cleaner, category-based processing
 
 ### 🔍 Monitoring
 

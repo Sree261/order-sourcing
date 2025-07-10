@@ -453,16 +453,12 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     private double calculateSplitPenalty(int locationCount, OrderItemDTO orderItem) {
         if (locationCount <= 1) return 0.0;
         
-        // Calculate total value for this item
-        double totalValue = orderItem.getUnitPrice() != null ? 
-            orderItem.getUnitPrice() * orderItem.getQuantity() : 0.0;
-        
         // Get scoring configuration for this order item
         var scoringConfig = scoringConfigurationService.getScoringConfigurationForItem(orderItem);
         
-        // Use configurable scoring service
+        // Use configurable scoring service (without value-based penalties)
         double penalty = scoringConfigurationService.calculateSplitPenalty(
-            locationCount, totalValue, scoringConfig, orderItem);
+            locationCount, 0.0, scoringConfig, orderItem);
         
         log.debug("Calculated split penalty: {} for {} locations, item: {}, using config: {}", 
                   penalty, locationCount, orderItem.getSku(), scoringConfig.getId());
@@ -644,7 +640,6 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
                 .requestedQuantity(orderItem.getQuantity())
                 .deliveryType(orderItem.getDeliveryType())
                 .locationFilterId(orderItem.getLocationFilterId())
-                .unitPrice(orderItem.getUnitPrice())
                 
                 // Fulfillment Summary
                 .totalFulfilled(strategy.totalFulfilled)
