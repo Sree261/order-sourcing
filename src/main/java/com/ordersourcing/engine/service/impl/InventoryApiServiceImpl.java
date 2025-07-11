@@ -50,7 +50,7 @@ public class InventoryApiServiceImpl implements InventoryApiService {
                 }
                 
                 log.debug("Found inventory for {} out of {} requested SKUs", 
-                         results.entrySet().stream().mapToInt(e -> e.getValue().isEmpty() ? 0 : 1).sum(), 
+                         results.values().stream().mapToInt(inventories -> inventories.isEmpty() ? 0 : 1).sum(),
                          skus.size());
                 
                 return results;

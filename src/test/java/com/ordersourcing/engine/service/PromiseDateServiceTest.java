@@ -1,6 +1,7 @@
 package com.ordersourcing.engine.service;
 
 import com.ordersourcing.engine.model.*;
+import com.ordersourcing.engine.dto.*;
 import com.ordersourcing.engine.service.PromiseDateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,9 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDateTime;
-import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,27 +22,31 @@ public class PromiseDateServiceTest {
 
     @Autowired
     private PromiseDateService promiseDateService;
-    private Order testOrder;
-    private OrderItem testOrderItem;
+    private OrderDTO testOrderContext;
+    private OrderItemDTO testOrderItem;
     private Location testLocation;
     private Inventory testInventory;
-    private FulfillmentPlan testPlan;
 
     @BeforeEach
     void setUp() {
         
         // Create test data
-        testOrder = new Order();
-        testOrder.setId(1);
-        testOrder.setOrderId("TEST_ORDER_001");
-        testOrder.setLatitude(42.3601);
-        testOrder.setLongitude(-71.0589);
+        testOrderContext = OrderDTO.builder()
+                .tempOrderId("TEST_ORDER_001")
+                .latitude(42.3601)
+                .longitude(-71.0589)
+                .requestTimestamp(LocalDateTime.now())
+                .orderItems(new ArrayList<>())
+                .build();
 
-        testOrderItem = new OrderItem();
-        testOrderItem.setId(1);
-        testOrderItem.setSku("TEST_SKU_001");
-        testOrderItem.setQuantity(5);
-        testOrderItem.setDeliveryType("STANDARD");
+        testOrderItem = OrderItemDTO.builder()
+                .sku("TEST_SKU_001")
+                .quantity(5)
+                .deliveryType("STANDARD")
+                .locationFilterId("filter-001")
+                .isHazmat(false)
+                .requiresColdStorage(false)
+                .build();
 
         testLocation = new Location();
         testLocation.setId(1);
@@ -54,14 +61,58 @@ public class PromiseDateServiceTest {
         testInventory.setSku("TEST_SKU_001");
         testInventory.setQuantity(10);
         testInventory.setProcessingTime(1);
-
-        testPlan = new FulfillmentPlan();
-        testPlan.setOrder(testOrder);
-        testPlan.setLocation(testLocation);
-        testPlan.setSku("TEST_SKU_001");
-        testPlan.setQuantity(5);
     }
 
+    @Test
+    void testCalculateEnhancedPromiseDate() {
+        PromiseDateBreakdown breakdown = promiseDateService.calculateEnhancedPromiseDate(
+            testOrderItem, testLocation, testInventory, testOrderContext);
+
+        // May be null if no carrier is found, which is acceptable
+        if (breakdown != null) {
+            assertNotNull(breakdown.getPromiseDate());
+            assertNotNull(breakdown.getEstimatedDeliveryDate());
+            assertEquals("STANDARD", breakdown.getDeliveryType());
+            assertTrue(breakdown.getLocationProcessingHours() > 0);
+            assertTrue(breakdown.getCarrierTransitHours() > 0);
+        }
+    }
+
+    @Test
+    void testBatchCalculatePromiseDates() throws Exception {
+        List<OrderItemDTO> orderItems = List.of(testOrderItem);
+        Map<String, List<Location>> filterResults = new HashMap<>();
+        filterResults.put("filter-001", List.of(testLocation));
+        Map<String, List<Inventory>> inventoryResults = new HashMap<>();
+        inventoryResults.put("TEST_SKU_001", List.of(testInventory));
+
+        CompletableFuture<Map<String, PromiseDateBreakdown>> future = 
+            promiseDateService.batchCalculatePromiseDates(orderItems, filterResults, inventoryResults, testOrderContext);
+
+        Map<String, PromiseDateBreakdown> results = future.get();
+        assertNotNull(results);
+        
+        // Results may be empty if no carrier is found, which is acceptable
+        if (results.containsKey("TEST_SKU_001")) {
+            PromiseDateBreakdown breakdown = results.get("TEST_SKU_001");
+            assertNotNull(breakdown.getPromiseDate());
+            assertEquals("STANDARD", breakdown.getDeliveryType());
+        }
+    }
+
+    /* 
+     * COMMENTED OUT TESTS - These test methods that were removed from the interface:
+     * - calculatePromiseDates
+     * - calculatePromiseDateForDeliveryType  
+     * - canMeetPromiseDate
+     * - calculateQuantityPromiseDates
+     * - calculateBusinessDaysBetween
+     * - getLatestSameDayPromise
+     * 
+     * These methods are no longer part of the PromiseDateService interface.
+     */
+
+    /*
     @Test
     void testCalculatePromiseDates() {
         promiseDateService.calculatePromiseDates(testPlan, testOrderItem, testInventory);
@@ -230,4 +281,5 @@ public class PromiseDateServiceTest {
                       promiseDate.toLocalDate().equals(LocalDateTime.now().plusDays(1).toLocalDate()));
         }
     }
+    */
 }

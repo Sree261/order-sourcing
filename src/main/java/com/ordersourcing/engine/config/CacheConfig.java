@@ -23,7 +23,8 @@ public class CacheConfig {
             "scoringConfigs",
             "defaultScoringConfig",
             "scoringConfigsByCategory",
-            "allActiveScoringConfigs"
+            "allActiveScoringConfigs",
+                "scoringConfigForItem"
         ));
         return cacheManager;
     }

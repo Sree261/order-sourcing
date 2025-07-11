@@ -2,8 +2,6 @@ package com.ordersourcing.engine.service.impl;
 
 import com.ordersourcing.engine.dto.*;
 import com.ordersourcing.engine.model.*;
-import com.ordersourcing.engine.repository.LocationRepository;
-import com.ordersourcing.engine.repository.InventoryRepository;
 import com.ordersourcing.engine.service.BatchSourcingService;
 import com.ordersourcing.engine.service.LocationFilterExecutionService;
 import com.ordersourcing.engine.service.InventoryApiService;
@@ -13,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -32,20 +29,15 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     private PromiseDateService promiseDateService;
     
     @Autowired
-    private LocationRepository locationRepository;
-    
-    @Autowired
-    private InventoryRepository inventoryRepository;
-    
-    @Autowired
     private ScoringConfigurationService scoringConfigurationService;
     
     // Configuration for batch vs sequential decision
     private static final int BATCH_THRESHOLD_ITEMS = 3;
     private static final int BATCH_THRESHOLD_TOTAL_QUANTITY = 10;
     
+    
     /**
-     * Main sourcing method with smart batch/sequential decision
+     * Main sourcing method that returns essential fulfillment information
      */
     public SourcingResponse sourceOrder(OrderDTO order) {
         long startTime = System.currentTimeMillis();
@@ -56,19 +48,18 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
             log.info("Using {} strategy for order: {} with {} items", 
                     strategy, order.getTempOrderId(), order.getOrderItems().size());
             
-            SourcingResponse response;
+            List<SourcingResponse.FulfillmentPlan> fulfillmentPlans;
             if (strategy == SourcingStrategy.BATCH) {
-                response = batchSourceOrder(order, startTime);
+                fulfillmentPlans = batchSourceOrder(order);
             } else {
-                response = sequentialSourceOrder(order, startTime);
+                fulfillmentPlans = sequentialSourceOrder(order);
             }
             
-            // Add final metadata
-            response.getMetadata().setProcesssingStrategy(strategy.name());
-            response.getMetadata().setTotalProcessingTimeMs(System.currentTimeMillis() - startTime);
-            response.getMetadata().setResponseTimestamp(LocalDateTime.now());
-            
-            return response;
+            return SourcingResponse.builder()
+                    .orderId(order.getTempOrderId())
+                    .fulfillmentPlans(fulfillmentPlans)
+                    .processingTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
             
         } catch (Exception e) {
             log.error("Error in order sourcing for order: {}", order.getTempOrderId(), e);
@@ -77,28 +68,9 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
-     * Simplified sourcing method that returns only essential fulfillment information
+     * Optimized batch processing for multiple items - simplified version
      */
-    public SimplifiedSourcingResponse sourceOrderSimplified(OrderDTO order) {
-        long startTime = System.currentTimeMillis();
-        
-        try {
-            // Use the existing detailed sourcing logic
-            SourcingResponse detailedResponse = sourceOrder(order);
-            
-            // Convert to simplified response
-            return convertToSimplifiedResponse(detailedResponse, startTime);
-            
-        } catch (Exception e) {
-            log.error("Error in simplified order sourcing for order: {}", order.getTempOrderId(), e);
-            return createErrorSimplifiedResponse(order, e, System.currentTimeMillis() - startTime);
-        }
-    }
-    
-    /**
-     * Optimized batch processing for multiple items
-     */
-    private SourcingResponse batchSourceOrder(OrderDTO order, long startTime) {
+    private List<SourcingResponse.FulfillmentPlan> batchSourceOrder(OrderDTO order) {
         log.debug("Starting batch sourcing for order: {}", order.getTempOrderId());
         
         // Step 1: Group OrderItems by LocationFilter ID to eliminate duplicate executions
@@ -108,7 +80,6 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
         log.debug("Grouped {} items into {} filter groups", order.getOrderItems().size(), filterGroups.size());
         
         // Step 2: Parallel filter execution (one per unique filter)
-        long filterStartTime = System.currentTimeMillis();
         CompletableFuture<Map<String, List<Location>>> filterFuture = 
                 locationFilterService.batchExecuteFilters(filterGroups.keySet(), order);
         
@@ -125,37 +96,16 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
             Map<String, List<Location>> filterResults = filterFuture.get();
             Map<String, List<Inventory>> inventoryResults = inventoryFuture.get();
             
-            long filterTime = System.currentTimeMillis() - filterStartTime;
-            
             // Step 4: Parallel promise date calculation
-            long promiseDateStartTime = System.currentTimeMillis();
             CompletableFuture<Map<String, PromiseDateBreakdown>> promiseDateFuture = 
                     promiseDateService.batchCalculatePromiseDates(order.getOrderItems(), 
                             filterResults, inventoryResults, order);
             
             Map<String, PromiseDateBreakdown> promiseDateResults = promiseDateFuture.get();
-            long promiseDateTime = System.currentTimeMillis() - promiseDateStartTime;
             
-            // Step 5: Build fulfillment plans
-            List<SourcingResponse.EnhancedFulfillmentPlan> fulfillmentPlans = 
-                    buildFulfillmentPlans(order.getOrderItems(), filterResults, 
-                            inventoryResults, promiseDateResults, order);
-            
-            // Build response with detailed metadata
-            return SourcingResponse.builder()
-                    .tempOrderId(order.getTempOrderId())
-                    .fulfillmentPlans(fulfillmentPlans)
-                    .metadata(SourcingResponse.SourcingMetadata.builder()
-                            .filterExecutionTimeMs(filterTime)
-                            .inventoryFetchTimeMs(filterTime) // Same as filter time since parallel
-                            .promiseDateCalculationTimeMs(promiseDateTime)
-                            .totalLocationsEvaluated(calculateTotalLocationsEvaluated(filterResults))
-                            .filtersExecuted(filterGroups.size())
-                            .cacheHitInfo(buildCacheHitInfo(filterResults))
-                            .performanceWarnings(identifyPerformanceWarnings(filterTime, promiseDateTime))
-                            .requestTimestamp(order.getRequestTimestamp())
-                            .build())
-                    .build();
+            // Step 5: Build simplified fulfillment plans
+            return buildSimplifiedFulfillmentPlans(order.getOrderItems(), filterResults, 
+                    inventoryResults, promiseDateResults, order);
                     
         } catch (Exception e) {
             log.error("Error in batch processing", e);
@@ -164,25 +114,18 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
-     * Sequential processing for simple orders
+     * Sequential processing for simple orders - simplified version
      */
-    private SourcingResponse sequentialSourceOrder(OrderDTO order, long startTime) {
+    private List<SourcingResponse.FulfillmentPlan> sequentialSourceOrder(OrderDTO order) {
         log.debug("Starting sequential sourcing for order: {}", order.getTempOrderId());
         
-        List<SourcingResponse.EnhancedFulfillmentPlan> fulfillmentPlans = new ArrayList<>();
-        long totalFilterTime = 0;
-        long totalInventoryTime = 0;
-        long totalPromiseDateTime = 0;
-        int totalLocationsEvaluated = 0;
+        List<SourcingResponse.FulfillmentPlan> fulfillmentPlans = new ArrayList<>();
         
         for (OrderItemDTO orderItem : order.getOrderItems()) {
             try {
                 // Filter execution
-                long filterStart = System.currentTimeMillis();
                 List<Location> locations = locationFilterService.executeLocationFilter(
                         orderItem.getLocationFilterId(), order);
-                totalFilterTime += (System.currentTimeMillis() - filterStart);
-                totalLocationsEvaluated += locations.size();
                 
                 if (locations.isEmpty()) {
                     log.warn("No locations found for item: {} with filter: {}", 
@@ -191,9 +134,7 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
                 }
                 
                 // Inventory fetch
-                long inventoryStart = System.currentTimeMillis();
                 List<Inventory> inventories = inventoryApiService.fetchInventoryBySku(orderItem.getSku());
-                totalInventoryTime += (System.currentTimeMillis() - inventoryStart);
                 
                 if (inventories.isEmpty()) {
                     log.warn("No inventory found for SKU: {}", orderItem.getSku());
@@ -206,18 +147,15 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
                 
                 if (strategy != null) {
                     // Promise date calculation (use primary location for timing)
-                    long promiseDateStart = System.currentTimeMillis();
                     LocationInventoryPair primaryPair = strategy.allocations.get(0);
                     PromiseDateBreakdown promiseDate = promiseDateService.calculateEnhancedPromiseDate(
                             orderItem, primaryPair.location, primaryPair.inventory, order);
-                    totalPromiseDateTime += (System.currentTimeMillis() - promiseDateStart);
                     
                     // Only add fulfillment plan if promise date calculation was successful
                     if (promiseDate != null) {
-                        // Build fulfillment plan
-                        Map<String, PromiseDateBreakdown> promiseDateMap = Map.of(orderItem.getSku(), promiseDate);
-                        SourcingResponse.EnhancedFulfillmentPlan plan = buildMultiLocationFulfillmentPlan(
-                                orderItem, strategy, promiseDateMap, order);
+                        // Build simplified fulfillment plan
+                        SourcingResponse.FulfillmentPlan plan = buildFulfillmentPlan(
+                                orderItem, strategy, promiseDate, order);
                         fulfillmentPlans.add(plan);
                     } else {
                         log.info("Skipping fulfillment plan for item {} - delivery type {} not feasible", 
@@ -230,20 +168,7 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
             }
         }
         
-        return SourcingResponse.builder()
-                .tempOrderId(order.getTempOrderId())
-                .fulfillmentPlans(fulfillmentPlans)
-                .metadata(SourcingResponse.SourcingMetadata.builder()
-                        .filterExecutionTimeMs(totalFilterTime)
-                        .inventoryFetchTimeMs(totalInventoryTime)
-                        .promiseDateCalculationTimeMs(totalPromiseDateTime)
-                        .totalLocationsEvaluated(totalLocationsEvaluated)
-                        .filtersExecuted(order.getOrderItems().size())
-                        .cacheHitInfo(new HashMap<>())
-                        .performanceWarnings(identifyPerformanceWarnings(totalFilterTime, totalPromiseDateTime))
-                        .requestTimestamp(order.getRequestTimestamp())
-                        .build())
-                .build();
+        return fulfillmentPlans;
     }
     
     /**
@@ -273,16 +198,16 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
-     * Build fulfillment plans from batch results
+     * Build simplified fulfillment plans from batch results
      */
-    private List<SourcingResponse.EnhancedFulfillmentPlan> buildFulfillmentPlans(
+    private List<SourcingResponse.FulfillmentPlan> buildSimplifiedFulfillmentPlans(
             List<OrderItemDTO> orderItems,
             Map<String, List<Location>> filterResults,
             Map<String, List<Inventory>> inventoryResults,
             Map<String, PromiseDateBreakdown> promiseDateResults,
             OrderDTO order) {
         
-        List<SourcingResponse.EnhancedFulfillmentPlan> plans = new ArrayList<>();
+        List<SourcingResponse.FulfillmentPlan> plans = new ArrayList<>();
         
         for (OrderItemDTO orderItem : orderItems) {
             try {
@@ -296,9 +221,9 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
                     FulfillmentStrategy strategy = findOptimalFulfillmentStrategy(
                             locations, inventories, orderItem, order);
                     
-                    if (strategy != null) {
-                        SourcingResponse.EnhancedFulfillmentPlan plan = buildMultiLocationFulfillmentPlan(
-                                orderItem, strategy, promiseDateResults, order);
+                    if (strategy != null && promiseDate != null) {
+                        SourcingResponse.FulfillmentPlan plan = buildFulfillmentPlan(
+                                orderItem, strategy, promiseDate, order);
                         plans.add(plan);
                     }
                 }
@@ -550,285 +475,57 @@ public class BatchSourcingServiceImpl implements BatchSourcingService {
     }
     
     /**
-     * Build comprehensive item-centric fulfillment plan
+     * Build fulfillment plan
      */
-    private SourcingResponse.EnhancedFulfillmentPlan buildMultiLocationFulfillmentPlan(
+    private SourcingResponse.FulfillmentPlan buildFulfillmentPlan(
             OrderItemDTO orderItem, FulfillmentStrategy strategy, 
-            Map<String, PromiseDateBreakdown> promiseDateResults, OrderDTO order) {
+            PromiseDateBreakdown promiseDate, OrderDTO order) {
         
-        // Get ALL possible locations for this item (not just allocated ones)
-        List<Location> allLocations = locationRepository.findAll();
-        List<Inventory> allInventories = inventoryRepository.findBySkuAndQuantityGreaterThan(orderItem.getSku(), 0);
+        List<SourcingResponse.LocationAllocation> locationAllocations = new ArrayList<>();
         
-        // Build location fulfillments for ALL viable locations
-        List<SourcingResponse.LocationFulfillment> locationFulfillments = new ArrayList<>();
-        Map<Integer, LocationInventoryPair> allocatedMap = strategy.allocations.stream()
-                .collect(Collectors.toMap(pair -> pair.location.getId(), pair -> pair));
-        
-        // Get all viable location-inventory pairs (same logic as in strategy evaluation)
-        List<LocationInventoryPair> allViablePairs = new ArrayList<>();
-        for (Location location : allLocations) {
-            for (Inventory inventory : allInventories) {
-                if (inventory.getLocationId().equals(location.getId())) {
-                    double score = calculateLocationScore(location, inventory, orderItem);
-                    allViablePairs.add(new LocationInventoryPair(location, inventory, score));
-                }
+        // Only include locations that are actually allocated in the optimal plan
+        for (LocationInventoryPair pair : strategy.allocations) {
+            if (pair.allocatedQuantity > 0) {
+                SourcingResponse.DeliveryTiming deliveryTiming = 
+                    SourcingResponse.DeliveryTiming.builder()
+                        .estimatedShipDate(promiseDate.getCarrierPickupTime())
+                        .estimatedDeliveryDate(promiseDate.getEstimatedDeliveryDate())
+                        .transitTimeDays(pair.location.getTransitTime())
+                        .processingTimeHours(pair.inventory.getProcessingTime() * 24)
+                        .build();
+                
+                SourcingResponse.LocationAllocation allocation = 
+                    SourcingResponse.LocationAllocation.builder()
+                        .locationId(pair.location.getId())
+                        .locationName(pair.location.getName())
+                        .allocatedQuantity(pair.allocatedQuantity)
+                        .locationScore(pair.score)
+                        .deliveryTiming(deliveryTiming)
+                        .build();
+                
+                locationAllocations.add(allocation);
             }
         }
         
-        // Sort by score for priority assignment
-        allViablePairs.sort((a, b) -> Double.compare(b.score, a.score));
-        
-        // Build location fulfillment entries
-        for (int i = 0; i < allViablePairs.size(); i++) {
-            LocationInventoryPair pair = allViablePairs.get(i);
-            LocationInventoryPair allocatedPair = allocatedMap.get(pair.location.getId());
-            
-            boolean isAllocated = allocatedPair != null;
-            boolean isPrimary = i == 0; // Best scoring location
-            boolean canFulfillCompletely = pair.inventory.getQuantity() >= orderItem.getQuantity();
-            
-            String fulfillmentStatus;
-            int allocatedQuantity = 0;
-            if (isAllocated) {
-                allocatedQuantity = allocatedPair.allocatedQuantity;
-                fulfillmentStatus = (allocatedQuantity >= orderItem.getQuantity()) ? "FULL" : "PARTIAL";
-            } else {
-                fulfillmentStatus = "AVAILABLE_NOT_USED";
-            }
-            
-            PromiseDateBreakdown promiseDate = promiseDateResults.get(orderItem.getSku());
-            
-            SourcingResponse.LocationFulfillment locationFulfillment = SourcingResponse.LocationFulfillment.builder()
-                    .location(buildLocationInfo(pair.location, pair.inventory, order))
-                    .availableInventory(pair.inventory.getQuantity())
-                    .allocatedQuantity(allocatedQuantity)
-                    .canFulfillCompletely(canFulfillCompletely)
-                    .promiseDates(promiseDate)
-                    .locationScore(pair.score)
-                    .allocationPriority(i + 1)
-                    .isPrimaryLocation(isPrimary)
-                    .isAllocatedInOptimalPlan(isAllocated)
-                    .fulfillmentStatus(fulfillmentStatus)
-                    .warnings(identifyWarnings(pair.location, pair.inventory, orderItem))
-                    .build();
-            
-            locationFulfillments.add(locationFulfillment);
-        }
-        
-        // Build comprehensive warnings
-        List<String> allWarnings = new ArrayList<>();
-        if (strategy.isPartialFulfillment) {
-            allWarnings.add(String.format("Partial fulfillment: %d of %d requested units", 
-                                        strategy.totalFulfilled, orderItem.getQuantity()));
-        }
-        if (strategy.isMultiLocation) {
-            allWarnings.add(String.format("Multi-location shipment across %d locations (penalty: %.1f points)", 
-                                        strategy.allocations.size(), strategy.splitPenalty));
-        }
-        
-        // Add location-specific warnings
-        locationFulfillments.stream()
-                .filter(lf -> lf.getIsAllocatedInOptimalPlan())
-                .flatMap(lf -> lf.getWarnings().stream())
-                .distinct()
-                .forEach(allWarnings::add);
-        
-        return SourcingResponse.EnhancedFulfillmentPlan.builder()
-                // Order Item Information
+        return SourcingResponse.FulfillmentPlan.builder()
                 .sku(orderItem.getSku())
                 .requestedQuantity(orderItem.getQuantity())
-                .deliveryType(orderItem.getDeliveryType())
-                .locationFilterId(orderItem.getLocationFilterId())
-                
-                // Fulfillment Summary
                 .totalFulfilled(strategy.totalFulfilled)
-                .remainingQuantity(orderItem.getQuantity() - strategy.totalFulfilled)
                 .isPartialFulfillment(strategy.isPartialFulfillment)
-                .isMultiLocationFulfillment(strategy.isMultiLocation)
-                .isBackorder(false)
-                
-                // All Location Options
-                .locationFulfillments(locationFulfillments)
-                
-                // Optimization Results
                 .overallScore(strategy.overallScore)
-                .splitPenalty(strategy.splitPenalty)
-                .recommendedStrategy(strategy.isMultiLocation ? "MULTI_LOCATION" : "SINGLE_LOCATION")
-                .scoringFactors(buildScoringFactorsExplanation(strategy))
-                .warnings(allWarnings)
+                .locationAllocations(locationAllocations)
                 .build();
     }
     
-    /**
-     * Build location info from location and inventory
-     */
-    private SourcingResponse.LocationInfo buildLocationInfo(Location location, Inventory inventory, OrderDTO order) {
-        return SourcingResponse.LocationInfo.builder()
-                .id(location.getId())
-                .name(location.getName())
-                .type(determineLocationType(location))
-                .latitude(location.getLatitude())
-                .longitude(location.getLongitude())
-                .transitTimeDays(location.getTransitTime())
-                .processingTimeHours(inventory.getProcessingTime() * 24)
-                .capabilities(Arrays.asList("STANDARD")) // Simplified
-                .distanceFromCustomer(calculateDistance(location, order))
-                .build();
-    }
-    
-    
-    /**
-     * Build explanation of scoring factors
-     */
-    private String buildScoringFactorsExplanation(FulfillmentStrategy strategy) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Transit time, processing time, inventory availability");
-        
-        if (strategy.isMultiLocation) {
-            sb.append(String.format("; Split penalty: %.1f points for %d locations", 
-                                  strategy.splitPenalty, strategy.allocations.size()));
-        }
-        
-        return sb.toString();
-    }
-    
-    
-    private String determineLocationType(Location location) {
-        String name = location.getName().toLowerCase();
-        if (name.contains("store")) return "STORE";
-        if (name.contains("warehouse")) return "WAREHOUSE";
-        return "DC";
-    }
-    
-    private double calculateDistance(Location location, OrderDTO order) {
-        return Math.sqrt(Math.pow(location.getLatitude() - order.getLatitude(), 2) + 
-                        Math.pow(location.getLongitude() - order.getLongitude(), 2)) * 111.32;
-    }
-    
-    private List<String> identifyWarnings(Location location, Inventory inventory, OrderItemDTO orderItem) {
-        List<String> warnings = new ArrayList<>();
-        
-        if (inventory.getQuantity() < orderItem.getQuantity()) {
-            warnings.add("Insufficient inventory - partial fulfillment");
-        }
-        
-        if (location.getTransitTime() > 3) {
-            warnings.add("Long transit time");
-        }
-        
-        if ("SAME_DAY".equals(orderItem.getDeliveryType()) && location.getTransitTime() > 1) {
-            warnings.add("Same day delivery may not be possible");
-        }
-        
-        return warnings;
-    }
-    
-    private Integer calculateTotalLocationsEvaluated(Map<String, List<Location>> filterResults) {
-        return filterResults.values().stream()
-                .mapToInt(List::size)
-                .sum();
-    }
-    
-    private Map<String, String> buildCacheHitInfo(Map<String, List<Location>> filterResults) {
-        Map<String, String> cacheInfo = new HashMap<>();
-        cacheInfo.put("filterCacheHits", String.valueOf(filterResults.size()));
-        return cacheInfo;
-    }
-    
-    private List<String> identifyPerformanceWarnings(long filterTime, long promiseDateTime) {
-        List<String> warnings = new ArrayList<>();
-        
-        if (filterTime > 200) {
-            warnings.add("Filter execution exceeded 200ms");
-        }
-        
-        if (promiseDateTime > 100) {
-            warnings.add("Promise date calculation exceeded 100ms");
-        }
-        
-        return warnings;
-    }
     
     private SourcingResponse createErrorResponse(OrderDTO order, Exception e, long processingTime) {
         return SourcingResponse.builder()
-                .tempOrderId(order.getTempOrderId())
-                .fulfillmentPlans(Collections.emptyList())
-                .metadata(SourcingResponse.SourcingMetadata.builder()
-                        .totalProcessingTimeMs(processingTime)
-                        .performanceWarnings(Arrays.asList("Error in sourcing: " + e.getMessage()))
-                        .requestTimestamp(order.getRequestTimestamp())
-                        .responseTimestamp(LocalDateTime.now())
-                        .build())
-                .build();
-    }
-    
-    /**
-     * Convert detailed response to simplified response
-     */
-    private SimplifiedSourcingResponse convertToSimplifiedResponse(SourcingResponse detailedResponse, long startTime) {
-        List<SimplifiedSourcingResponse.FulfillmentPlan> simplifiedPlans = new ArrayList<>();
-        
-        for (SourcingResponse.EnhancedFulfillmentPlan enhancedPlan : detailedResponse.getFulfillmentPlans()) {
-            List<SimplifiedSourcingResponse.LocationAllocation> locationAllocations = new ArrayList<>();
-            
-            // Only include locations that are actually allocated in the optimal plan
-            for (SourcingResponse.LocationFulfillment locationFulfillment : enhancedPlan.getLocationFulfillments()) {
-                if (locationFulfillment.getIsAllocatedInOptimalPlan() && 
-                    locationFulfillment.getAllocatedQuantity() > 0 &&
-                    locationFulfillment.getPromiseDates() != null) {
-                    
-                    SimplifiedSourcingResponse.DeliveryTiming deliveryTiming = 
-                        SimplifiedSourcingResponse.DeliveryTiming.builder()
-                            .estimatedShipDate(locationFulfillment.getPromiseDates().getCarrierPickupTime())
-                            .estimatedDeliveryDate(locationFulfillment.getPromiseDates().getEstimatedDeliveryDate())
-                            .transitTimeDays(locationFulfillment.getLocation().getTransitTimeDays())
-                            .processingTimeHours(locationFulfillment.getLocation().getProcessingTimeHours())
-                            .build();
-                    
-                    SimplifiedSourcingResponse.LocationAllocation allocation = 
-                        SimplifiedSourcingResponse.LocationAllocation.builder()
-                            .locationId(locationFulfillment.getLocation().getId())
-                            .locationName(locationFulfillment.getLocation().getName())
-                            .allocatedQuantity(locationFulfillment.getAllocatedQuantity())
-                            .locationScore(locationFulfillment.getLocationScore())
-                            .deliveryTiming(deliveryTiming)
-                            .build();
-                    
-                    locationAllocations.add(allocation);
-                }
-            }
-            
-            SimplifiedSourcingResponse.FulfillmentPlan simplifiedPlan = 
-                SimplifiedSourcingResponse.FulfillmentPlan.builder()
-                    .sku(enhancedPlan.getSku())
-                    .requestedQuantity(enhancedPlan.getRequestedQuantity())
-                    .totalFulfilled(enhancedPlan.getTotalFulfilled())
-                    .isPartialFulfillment(enhancedPlan.getIsPartialFulfillment())
-                    .overallScore(enhancedPlan.getOverallScore())
-                    .locationAllocations(locationAllocations)
-                    .build();
-            
-            simplifiedPlans.add(simplifiedPlan);
-        }
-        
-        return SimplifiedSourcingResponse.builder()
-                .orderId(detailedResponse.getTempOrderId())
-                .fulfillmentPlans(simplifiedPlans)
-                .processingTimeMs(System.currentTimeMillis() - startTime)
-                .build();
-    }
-    
-    /**
-     * Create simplified error response
-     */
-    private SimplifiedSourcingResponse createErrorSimplifiedResponse(OrderDTO order, Exception e, long processingTime) {
-        return SimplifiedSourcingResponse.builder()
                 .orderId(order.getTempOrderId())
                 .fulfillmentPlans(Collections.emptyList())
                 .processingTimeMs(processingTime)
                 .build();
     }
+    
     
     // Helper classes
     private static class LocationInventoryPair {

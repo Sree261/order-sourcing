@@ -5,16 +5,12 @@ import com.ordersourcing.engine.model.Location;
 import com.ordersourcing.engine.model.ScoringConfiguration;
 import com.ordersourcing.engine.repository.ScoringConfigurationRepository;
 import com.ordersourcing.engine.service.ScoringConfigurationService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -23,16 +19,12 @@ public class ScoringConfigurationServiceImpl implements ScoringConfigurationServ
     @Autowired
     private ScoringConfigurationRepository scoringConfigurationRepository;
     
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
     private static final String DEFAULT_SCORING_CONFIG_ID = "DEFAULT_SCORING";
     
     /**
      * Gets the scoring configuration for a specific ID
      */
-    @Cacheable(value = "scoringConfigs", key = "#configurationId")
-    @Override
-    public Optional<ScoringConfiguration> getScoringConfiguration(String configurationId) {
+    private Optional<ScoringConfiguration> getScoringConfiguration(String configurationId) {
         log.debug("Getting scoring configuration for ID: {}", configurationId);
         return scoringConfigurationRepository.findByIdAndIsActiveTrue(configurationId);
     }
@@ -40,9 +32,7 @@ public class ScoringConfigurationServiceImpl implements ScoringConfigurationServ
     /**
      * Gets the default scoring configuration when no specific configuration is provided
      */
-    @Cacheable(value = "defaultScoringConfig")
-    @Override
-    public ScoringConfiguration getDefaultScoringConfiguration() {
+    private ScoringConfiguration getDefaultScoringConfiguration() {
         log.debug("Getting default scoring configuration");
         return scoringConfigurationRepository.findByIdAndIsActiveTrue(DEFAULT_SCORING_CONFIG_ID)
                 .orElseGet(this::createDefaultScoringConfiguration);
@@ -52,62 +42,13 @@ public class ScoringConfigurationServiceImpl implements ScoringConfigurationServ
      * Gets scoring configuration for an order item, falling back to default if not specified
      */
     @Override
+    @Cacheable(value = "scoringConfigForItem", key = "#orderItem.scoringConfigurationId ?: 'DEFAULT'")
     public ScoringConfiguration getScoringConfigurationForItem(OrderItemDTO orderItem) {
         if (orderItem.getScoringConfigurationId() != null) {
             return getScoringConfiguration(orderItem.getScoringConfigurationId())
                     .orElse(getDefaultScoringConfiguration());
         }
         return getDefaultScoringConfiguration();
-    }
-    
-    /**
-     * Gets all active scoring configurations by category
-     */
-    @Cacheable(value = "scoringConfigsByCategory", key = "#category")
-    @Override
-    public List<ScoringConfiguration> getScoringConfigurationsByCategory(String category) {
-        log.debug("Getting scoring configurations for category: {}", category);
-        return scoringConfigurationRepository.findByCategoryOrderByPriority(category);
-    }
-    
-    /**
-     * Gets all active scoring configurations ordered by priority
-     */
-    @Cacheable(value = "allActiveScoringConfigs")
-    @Override
-    public List<ScoringConfiguration> getAllActiveScoringConfigurations() {
-        log.debug("Getting all active scoring configurations");
-        return scoringConfigurationRepository.findByIsActiveTrueOrderByExecutionPriorityAsc();
-    }
-    
-    /**
-     * Batch loads scoring configurations for multiple items
-     */
-    @Override
-    public Map<String, ScoringConfiguration> batchLoadScoringConfigurations(List<OrderItemDTO> orderItems) {
-        Set<String> configIds = orderItems.stream()
-                .map(OrderItemDTO::getScoringConfigurationId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        
-        if (configIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        
-        List<ScoringConfiguration> configs = scoringConfigurationRepository
-                .findActiveConfigurationsByIds(new ArrayList<>(configIds));
-        
-        return configs.stream()
-                .collect(Collectors.toMap(ScoringConfiguration::getId, config -> config));
-    }
-    
-    /**
-     * Validates if a scoring configuration exists and is active
-     */
-    @Override
-    public boolean isValidScoringConfiguration(String configurationId) {
-        if (configurationId == null) return false;
-        return getScoringConfiguration(configurationId).isPresent();
     }
     
     /**
@@ -185,16 +126,6 @@ public class ScoringConfigurationServiceImpl implements ScoringConfigurationServ
                   penalty, locationCount, totalValue, orderItem.getDeliveryType());
         
         return penalty;
-    }
-    
-    /**
-     * Refreshes the scoring configuration cache
-     */
-    @CacheEvict(value = {"scoringConfigs", "defaultScoringConfig", "scoringConfigsByCategory", 
-                         "allActiveScoringConfigs"}, allEntries = true)
-    @Override
-    public void refreshCache() {
-        log.info("Refreshing scoring configuration cache");
     }
     
     /**

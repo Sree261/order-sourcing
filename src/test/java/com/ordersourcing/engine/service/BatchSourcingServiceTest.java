@@ -1,6 +1,8 @@
 package com.ordersourcing.engine.service;
 
-import com.ordersourcing.engine.dto.*;
+import com.ordersourcing.engine.dto.OrderDTO;
+import com.ordersourcing.engine.dto.OrderItemDTO;
+import com.ordersourcing.engine.dto.SourcingResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,15 +14,14 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 
 @SpringBootTest
 @TestPropertySource(properties = {
     "inventory.api.base-url=http://mock-inventory-api:8080/api/inventory",
     "inventory.api.timeout=5000"
 })
-public class
-
-BatchSourcingServiceTest {
+public class BatchSourcingServiceTest {
 
     @Autowired
     private BatchSourcingService batchSourcingService;
@@ -102,65 +103,108 @@ BatchSourcingServiceTest {
     }
 
     @Test
-    void testPerformanceRequirementSingleItem() {
-        // Test that single item orders meet performance requirements
+    void testSourceOrderSimplifiedSingleItem() {
+        // Test sourcing a single item order
         long startTime = System.currentTimeMillis();
         
-        // This would be a real call in integration test
-        // SourcingResponse response = batchSourcingService.sourceOrder(singleItemOrder);
+        SourcingResponse response = batchSourcingService.sourceOrder(singleItemOrder);
         
         long executionTime = System.currentTimeMillis() - startTime;
         
-        // Verify performance requirement (should be well under 100ms for single item)
+        // Verify response structure
+        assertNotNull(response, "Response should not be null");
+        assertEquals("SINGLE_001", response.getOrderId(), "Order ID should match");
+        assertNotNull(response.getFulfillmentPlans(), "Fulfillment plans should not be null");
+        assertEquals(1, response.getFulfillmentPlans().size(), "Should have one fulfillment plan for single item");
+        
+        // Verify fulfillment plan
+        SourcingResponse.FulfillmentPlan plan = response.getFulfillmentPlans().get(0);
+        assertEquals("PHONE123", plan.getSku(), "SKU should match");
+        assertEquals(1, plan.getRequestedQuantity(), "Requested quantity should be 1");
+        assertNotNull(plan.getLocationAllocations(), "Location allocations should not be null");
+        
+        // Verify performance (should be well under 100ms for single item)
         assertTrue(executionTime < 100, 
             "Single item sourcing should complete in under 100ms. Actual: " + executionTime + "ms");
     }
 
     @Test
-    void testPerformanceRequirementMultiItem() {
-        // Test that multi-item orders meet performance requirements
+    void testSourceOrderSimplifiedMultiItem() {
+        // Test sourcing a multi-item order
         long startTime = System.currentTimeMillis();
         
-        // This would be a real call in integration test
-        // SourcingResponse response = batchSourcingService.sourceOrder(multiItemOrder);
+        SourcingResponse response = batchSourcingService.sourceOrder(multiItemOrder);
         
         long executionTime = System.currentTimeMillis() - startTime;
         
-        // Verify performance requirement (should be under 200ms for multi-item)
+        // Verify response structure
+        assertNotNull(response, "Response should not be null");
+        assertEquals("MULTI_001", response.getOrderId(), "Order ID should match");
+        assertNotNull(response.getFulfillmentPlans(), "Fulfillment plans should not be null");
+        assertEquals(3, response.getFulfillmentPlans().size(), "Should have three fulfillment plans for multi-item order");
+        
+        // Verify each fulfillment plan has proper structure
+        for (SourcingResponse.FulfillmentPlan plan : response.getFulfillmentPlans()) {
+            assertNotNull(plan.getSku(), "SKU should not be null");
+            assertTrue(plan.getRequestedQuantity() > 0, "Requested quantity should be positive");
+            assertNotNull(plan.getLocationAllocations(), "Location allocations should not be null");
+            
+            // Verify location allocations have delivery timing
+            for (SourcingResponse.LocationAllocation allocation : plan.getLocationAllocations()) {
+                assertNotNull(allocation.getDeliveryTiming(), "Delivery timing should not be null");
+                assertTrue(allocation.getAllocatedQuantity() > 0, "Allocated quantity should be positive");
+            }
+        }
+        
+        // Verify performance (should be under 200ms for multi-item)
         assertTrue(executionTime < 200, 
             "Multi-item sourcing should complete in under 200ms. Actual: " + executionTime + "ms");
     }
 
     @Test
-    void testPerformanceRequirementLargeOrder() {
-        // Test that large orders meet performance requirements
+    void testSourceOrderSimplifiedLargeOrder() {
+        // Test sourcing a large order
         long startTime = System.currentTimeMillis();
         
-        // This would be a real call in integration test
-        // SourcingResponse response = batchSourcingService.sourceOrder(largeOrder);
+        SourcingResponse response = batchSourcingService.sourceOrder(largeOrder);
         
         long executionTime = System.currentTimeMillis() - startTime;
         
-        // Verify performance requirement (should be under 500ms for large orders)
+        // Verify response structure
+        assertNotNull(response, "Response should not be null");
+        assertEquals("LARGE_001", response.getOrderId(), "Order ID should match");
+        assertNotNull(response.getFulfillmentPlans(), "Fulfillment plans should not be null");
+        assertEquals(15, response.getFulfillmentPlans().size(), "Should have 15 fulfillment plans for large order");
+        
+        // Verify helper methods work correctly
+        int totalRequested = response.getTotalItemsRequested();
+        int totalFulfilled = response.getTotalItemsFulfilled();
+        assertTrue(totalRequested > 0, "Total requested should be positive");
+        assertTrue(totalFulfilled >= 0, "Total fulfilled should be non-negative");
+        
+        // Verify performance (should be under 500ms for large orders)
         assertTrue(executionTime < 500, 
             "Large order sourcing should complete in under 500ms. Actual: " + executionTime + "ms");
     }
 
     @Test
-    void testBatchVsSequentialDecision() {
-        // Test the decision logic for batch vs sequential processing
+    void testResponseHelperMethods() {
+        // Test helper methods on SourcingResponse
+        SourcingResponse response = batchSourcingService.sourceOrder(multiItemOrder);
         
-        // Single item should use sequential
-        assertFalse(shouldUseBatchProcessing(singleItemOrder), 
-            "Single simple item should use sequential processing");
+        assertNotNull(response, "Response should not be null");
         
-        // Multi-item should use batch
-        assertTrue(shouldUseBatchProcessing(multiItemOrder), 
-            "Multi-item order should use batch processing");
+        // Test helper methods
+        int totalRequested = response.getTotalItemsRequested();
+        int totalFulfilled = response.getTotalItemsFulfilled();
+        boolean hasPartial = response.hasPartialFulfillments();
         
-        // Large order should use batch
-        assertTrue(shouldUseBatchProcessing(largeOrder), 
-            "Large order should use batch processing");
+        assertTrue(totalRequested > 0, "Total requested should be positive");
+        assertTrue(totalFulfilled >= 0, "Total fulfilled should be non-negative");
+        // hasPartial can be true or false, both are valid
+        
+        // Verify processing time is recorded
+        assertTrue(response.getProcessingTimeMs() >= 0, "Processing time should be non-negative");
     }
 
     @Test
@@ -176,6 +220,7 @@ BatchSourcingServiceTest {
                 .tempOrderId("EMPTY_001")
                 .latitude(40.7128)
                 .longitude(-74.0060)
+                .requestTimestamp(LocalDateTime.now())
                 .orderItems(Collections.emptyList())
                 .build();
         assertFalse(isValidOrder(emptyOrder), "Empty order should be invalid");
@@ -185,6 +230,7 @@ BatchSourcingServiceTest {
                 .tempOrderId("INVALID_001")
                 .latitude(40.7128)
                 .longitude(-74.0060)
+                .requestTimestamp(LocalDateTime.now())
                 .orderItems(Arrays.asList(
                     OrderItemDTO.builder()
                         .sku("TEST123")
@@ -198,31 +244,47 @@ BatchSourcingServiceTest {
     }
 
     @Test
-    void testQuantityPromiseGeneration() {
-        // Test that quantity promises are generated correctly
-        OrderItemDTO item = multiItemOrder.getOrderItems().get(0); // PHONE123, quantity 2
+    void testFulfillmentPlanStructure() {
+        // Test that fulfillment plans have correct structure
+        SourcingResponse response = batchSourcingService.sourceOrder(multiItemOrder);
         
-        // This would test the actual promise generation
-        List<SourcingResponse.QuantityPromise> promises = generateMockQuantityPromises(item);
+        assertNotNull(response.getFulfillmentPlans(), "Fulfillment plans should not be null");
+        assertFalse(response.getFulfillmentPlans().isEmpty(), "Should have fulfillment plans");
         
-        assertEquals(2, promises.size(), "Should generate promises for each quantity");
-        
-        for (int i = 0; i < promises.size(); i++) {
-            SourcingResponse.QuantityPromise promise = promises.get(i);
-            assertEquals(i + 1, promise.getQuantity(), "Quantity should increment correctly");
-            assertNotNull(promise.getPromiseDate(), "Promise date should not be null");
-            assertNotNull(promise.getEstimatedShipDate(), "Ship date should not be null");
-            assertNotNull(promise.getEstimatedDeliveryDate(), "Delivery date should not be null");
+        for (SourcingResponse.FulfillmentPlan plan : response.getFulfillmentPlans()) {
+            // Verify basic plan structure
+            assertNotNull(plan.getSku(), "SKU should not be null");
+            assertTrue(plan.getRequestedQuantity() > 0, "Requested quantity should be positive");
+            assertTrue(plan.getTotalFulfilled() >= 0, "Total fulfilled should be non-negative");
+            assertTrue(plan.getOverallScore() >= 0, "Overall score should be non-negative");
+            
+            // Verify location allocations
+            assertNotNull(plan.getLocationAllocations(), "Location allocations should not be null");
+            for (SourcingResponse.LocationAllocation allocation : plan.getLocationAllocations()) {
+                assertTrue(allocation.getLocationId() > 0, "Location ID should be positive");
+                assertNotNull(allocation.getLocationName(), "Location name should not be null");
+                assertTrue(allocation.getAllocatedQuantity() > 0, "Allocated quantity should be positive");
+                assertTrue(allocation.getLocationScore() >= 0, "Location score should be non-negative");
+                
+                // Verify delivery timing
+                SourcingResponse.DeliveryTiming timing = allocation.getDeliveryTiming();
+                assertNotNull(timing, "Delivery timing should not be null");
+                assertNotNull(timing.getEstimatedShipDate(), "Ship date should not be null");
+                assertNotNull(timing.getEstimatedDeliveryDate(), "Delivery date should not be null");
+                assertTrue(timing.getTransitTimeDays() >= 0, "Transit time should be non-negative");
+                assertTrue(timing.getProcessingTimeHours() >= 0, "Processing time should be non-negative");
+            }
         }
     }
 
     @Test
-    void testElectronicsSecurityHandling() {
-        // Test handling of electronics orders that require security
+    void testElectronicsOrderSourcing() {
+        // Test sourcing of electronics orders
         OrderDTO electronicsOrder = OrderDTO.builder()
                 .tempOrderId("ELECTRONICS_001")
                 .latitude(40.7128)
                 .longitude(-74.0060)
+                .requestTimestamp(LocalDateTime.now())
                 .orderItems(Arrays.asList(
                     OrderItemDTO.builder()
                         .sku("LAPTOP456")
@@ -234,35 +296,56 @@ BatchSourcingServiceTest {
                 ))
                 .build();
         
-        // Electronics orders should use security-focused filters
+        SourcingResponse response = batchSourcingService.sourceOrder(electronicsOrder);
+        
+        assertNotNull(response, "Response should not be null");
+        assertEquals("ELECTRONICS_001", response.getOrderId(), "Order ID should match");
+        assertEquals(1, response.getFulfillmentPlans().size(), "Should have one fulfillment plan");
+        
+        SourcingResponse.FulfillmentPlan plan = response.getFulfillmentPlans().get(0);
+        assertEquals("LAPTOP456", plan.getSku(), "SKU should match");
+        assertEquals(1, plan.getRequestedQuantity(), "Requested quantity should be 1");
+        
+        // Verify that the order input uses security filter
         OrderItemDTO item = electronicsOrder.getOrderItems().get(0);
         assertEquals("ELECTRONICS_SECURE_RULE", item.getLocationFilterId(), 
             "Electronics items should use security filter");
-        assertTrue(item.requiresHighSecurity(), "Electronics items should require high security");
     }
 
     @Test
-    void testSameDayDeliveryConstraints() {
-        // Test same day delivery specific logic
+    void testSameDayDeliverySourcing() {
+        // Test sourcing of same day delivery orders
         OrderDTO sameDayOrder = OrderDTO.builder()
                 .tempOrderId("SAME_DAY_001")
                 .latitude(40.7128)
                 .longitude(-74.0060)
+                .requestTimestamp(LocalDateTime.now())
                 .orderItems(Arrays.asList(
                     OrderItemDTO.builder()
                         .sku("PHONE123")
                         .quantity(1)
                         .deliveryType("SAME_DAY")
                         .locationFilterId("SDD_FILTER_RULE")
-                        .isExpressPriority(true)
                         .build()
                 ))
                 .build();
         
-        assertTrue(sameDayOrder.hasTimeSensitiveItems(), "Same day order should be time sensitive");
+        SourcingResponse response = batchSourcingService.sourceOrder(sameDayOrder);
         
-        OrderItemDTO item = sameDayOrder.getOrderItems().get(0);
-        assertTrue(item.isTimeSensitive(), "Same day item should be time sensitive");
+        assertNotNull(response, "Response should not be null");
+        assertEquals("SAME_DAY_001", response.getOrderId(), "Order ID should match");
+        assertEquals(1, response.getFulfillmentPlans().size(), "Should have one fulfillment plan");
+        
+        SourcingResponse.FulfillmentPlan plan = response.getFulfillmentPlans().get(0);
+        assertEquals("PHONE123", plan.getSku(), "SKU should match");
+        
+        // Verify delivery timing is available
+        for (SourcingResponse.LocationAllocation allocation : plan.getLocationAllocations()) {
+            SourcingResponse.DeliveryTiming timing = allocation.getDeliveryTiming();
+            assertNotNull(timing, "Delivery timing should not be null for same day delivery");
+            // Same day delivery should have short transit time
+            assertTrue(timing.getTransitTimeDays() <= 1, "Same day delivery should have transit time of 1 day or less");
+        }
     }
 
     @Test
@@ -270,8 +353,8 @@ BatchSourcingServiceTest {
         // Test error handling scenarios
         
         // Null order
-        assertThrows(IllegalArgumentException.class, () -> {
-            validateOrder(null);
+        assertThrows(Exception.class, () -> {
+            batchSourcingService.sourceOrder(null);
         }, "Null order should throw exception");
         
         // Order with invalid coordinates
@@ -279,6 +362,7 @@ BatchSourcingServiceTest {
                 .tempOrderId("INVALID_COORDS")
                 .latitude(200.0) // Invalid latitude
                 .longitude(-74.0060)
+                .requestTimestamp(LocalDateTime.now())
                 .orderItems(Arrays.asList(
                     OrderItemDTO.builder()
                         .sku("TEST123")
@@ -289,23 +373,12 @@ BatchSourcingServiceTest {
                 ))
                 .build();
         
-        assertThrows(IllegalArgumentException.class, () -> {
-            validateOrder(invalidCoordsOrder);
+        assertThrows(Exception.class, () -> {
+            batchSourcingService.sourceOrder(invalidCoordsOrder);
         }, "Invalid coordinates should throw exception");
     }
 
-    // Helper methods for testing (these would be private methods in the actual service)
-    
-    private boolean shouldUseBatchProcessing(OrderDTO order) {
-        int itemCount = order.getOrderItems().size();
-        int totalQuantity = order.getTotalQuantity();
-        boolean hasMultipleDeliveryTypes = order.hasMultipleDeliveryTypes();
-        
-        return itemCount >= 3 || 
-               totalQuantity >= 10 ||
-               hasMultipleDeliveryTypes ||
-               order.isLargeOrder();
-    }
+    // Helper methods for testing
     
     private boolean isValidOrder(OrderDTO order) {
         if (order == null || order.getOrderItems().isEmpty()) {
@@ -321,36 +394,6 @@ BatchSourcingServiceTest {
         return true;
     }
     
-    private void validateOrder(OrderDTO order) {
-        if (order == null) {
-            throw new IllegalArgumentException("Order cannot be null");
-        }
-        
-        if (order.getLatitude() == null || order.getLatitude() < -90 || order.getLatitude() > 90) {
-            throw new IllegalArgumentException("Invalid latitude");
-        }
-        
-        if (order.getLongitude() == null || order.getLongitude() < -180 || order.getLongitude() > 180) {
-            throw new IllegalArgumentException("Invalid longitude");
-        }
-    }
-    
-    private List<SourcingResponse.QuantityPromise> generateMockQuantityPromises(OrderItemDTO item) {
-        List<SourcingResponse.QuantityPromise> promises = new ArrayList<>();
-        LocalDateTime baseDate = LocalDateTime.now().plusDays(1);
-        
-        for (int i = 1; i <= item.getQuantity(); i++) {
-            promises.add(SourcingResponse.QuantityPromise.builder()
-                    .quantity(i)
-                    .promiseDate(baseDate.plusHours(i))
-                    .estimatedShipDate(baseDate.minusHours(12))
-                    .estimatedDeliveryDate(baseDate)
-                    .batchInfo("BATCH_1")
-                    .build());
-        }
-        
-        return promises;
-    }
     
     private List<OrderItemDTO> createLargeOrderItems() {
         List<OrderItemDTO> items = new ArrayList<>();

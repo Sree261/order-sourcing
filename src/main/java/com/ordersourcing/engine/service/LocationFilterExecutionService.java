@@ -20,19 +20,4 @@ public interface LocationFilterExecutionService {
      */
     CompletableFuture<Map<String, List<Location>>> batchExecuteFilters(
             Set<String> filterIds, OrderDTO orderContext);
-    
-    /**
-     * Pre-compute filter results for active filters
-     */
-    void refreshPrecomputedResults();
-    
-    /**
-     * Invalidate cache for a specific filter
-     */
-    void invalidateFilterCache(String filterId);
-    
-    /**
-     * Get filter performance metrics
-     */
-    Map<String, Object> getFilterMetrics();
 }

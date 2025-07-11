@@ -16,34 +16,4 @@ public interface CarrierService {
     Optional<CarrierConfiguration> getBestCarrierConfiguration(String deliveryType, 
                                                              Double distance, 
                                                              OrderItemDTO orderItem);
-    
-    /**
-     * Calculates transit time considering carrier configuration and distance
-     */
-    Integer calculateTransitTime(CarrierConfiguration carrier, Location from, 
-                              Double customerLat, Double customerLon, 
-                              LocalDateTime orderTime, Boolean isPeakSeason);
-    
-    /**
-     * Calculates carrier pickup time based on cutoff schedules
-     */
-    LocalDateTime calculatePickupTime(CarrierConfiguration carrier, LocalDateTime orderTime);
-    
-    /**
-     * Gets estimated delivery window for a carrier
-     */
-    LocalDateTime[] getDeliveryWindow(CarrierConfiguration carrier, LocalDateTime deliveryDate);
-    
-    /**
-     * Gets all available carriers for a delivery type with filtering
-     */
-    List<CarrierConfiguration> getAvailableCarriers(String deliveryType, 
-                                                  Double distance, 
-                                                  Boolean weekendRequired, 
-                                                  OrderItemDTO orderItem);
-    
-    /**
-     * Calculates carrier-specific service adjustments
-     */
-    Integer calculateServiceAdjustment(CarrierConfiguration carrier, String deliveryType);
 }

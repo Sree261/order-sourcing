@@ -8,10 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.DayOfWeek;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
@@ -22,284 +19,14 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 public class PromiseDateServiceImpl implements PromiseDateService {
-    
+
     @Autowired
     private CarrierService carrierService;
 
     /**
-     * Calculates promise dates for a fulfillment plan
-     */
-    public void calculatePromiseDates(FulfillmentPlan plan, OrderItem orderItem, Inventory inventory) {
-        if (plan == null || orderItem == null || inventory == null || plan.getLocation() == null) {
-            return;
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        String deliveryType = orderItem.getDeliveryType();
-        Location location = plan.getLocation();
-
-        // Store delivery type and time components
-        plan.setDeliveryType(deliveryType);
-        plan.setProcessingTimeHours(convertDaysToHours(inventory.getProcessingTime()));
-        plan.setTransitTimeHours(convertDaysToHours(location.getTransitTime()));
-
-        // Calculate estimated ship date (current time + processing time)
-        LocalDateTime estimatedShipDate = calculateEstimatedShipDate(now, inventory.getProcessingTime());
-        plan.setEstimatedShipDate(estimatedShipDate);
-
-        // Calculate estimated delivery date (ship date + transit time)
-        LocalDateTime estimatedDeliveryDate = calculateEstimatedDeliveryDate(estimatedShipDate, location.getTransitTime());
-        plan.setEstimatedDeliveryDate(estimatedDeliveryDate);
-
-        // Calculate promise date based on delivery type and add buffer
-        LocalDateTime promiseDate = calculatePromiseDate(estimatedDeliveryDate, deliveryType);
-        plan.setPromiseDate(promiseDate);
-    }
-
-    /**
-     * Calculates estimated ship date considering business hours and weekends
-     */
-    private LocalDateTime calculateEstimatedShipDate(LocalDateTime currentTime, int processingTimeDays) {
-        LocalDateTime shipDate = currentTime;
-
-        // Add processing time
-        shipDate = shipDate.plusDays(processingTimeDays);
-
-        // Adjust for business hours (assume 9 AM - 6 PM)
-        if (shipDate.getHour() < 9) {
-            shipDate = shipDate.withHour(9).withMinute(0).withSecond(0);
-        } else if (shipDate.getHour() >= 18) {
-            shipDate = shipDate.plusDays(1).withHour(9).withMinute(0).withSecond(0);
-        }
-
-        // Skip weekends for shipping
-        while (shipDate.getDayOfWeek() == DayOfWeek.SATURDAY || shipDate.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            shipDate = shipDate.plusDays(1);
-        }
-
-        return shipDate;
-    }
-
-    /**
-     * Calculates estimated delivery date based on ship date and transit time
-     */
-    private LocalDateTime calculateEstimatedDeliveryDate(LocalDateTime shipDate, int transitTimeDays) {
-        LocalDateTime deliveryDate = shipDate.plusDays(transitTimeDays);
-
-        // For weekend deliveries, adjust based on delivery type
-        // Most standard deliveries don't deliver on weekends
-        if (deliveryDate.getDayOfWeek() == DayOfWeek.SATURDAY) {
-            deliveryDate = deliveryDate.plusDays(2); // Move to Monday
-        } else if (deliveryDate.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            deliveryDate = deliveryDate.plusDays(1); // Move to Monday
-        }
-
-        return deliveryDate;
-    }
-
-    /**
-     * Calculates promise date based on delivery type with appropriate buffers
-     */
-    private LocalDateTime calculatePromiseDate(LocalDateTime estimatedDeliveryDate, String deliveryType) {
-        LocalDateTime promiseDate = estimatedDeliveryDate;
-
-        switch (deliveryType.toUpperCase()) {
-            case "SAME_DAY":
-                // Same day delivery: promise by end of day
-                promiseDate = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
-                break;
-            case "NEXT_DAY":
-            case "EXPRESS":
-                // Next day: add minimal buffer (4 hours)
-                promiseDate = estimatedDeliveryDate.plusHours(4);
-                break;
-            case "SHIP_FROM_STORE":
-                // Ship from store: add 1 day buffer
-                promiseDate = estimatedDeliveryDate.plusDays(1);
-                break;
-            case "STANDARD":
-            default:
-                // Standard delivery: add 2 days buffer
-                promiseDate = estimatedDeliveryDate.plusDays(2);
-                break;
-        }
-
-        // Ensure promise date is not on weekend for most delivery types
-        if (!deliveryType.equalsIgnoreCase("SAME_DAY")) {
-            while (promiseDate.getDayOfWeek() == DayOfWeek.SATURDAY || promiseDate.getDayOfWeek() == DayOfWeek.SUNDAY) {
-                promiseDate = promiseDate.plusDays(1);
-            }
-        }
-
-        return promiseDate;
-    }
-
-    /**
-     * Converts days to hours for storage
-     */
-    private Integer convertDaysToHours(int days) {
-        return days * 24;
-    }
-
-    /**
-     * Calculates promise date for a specific delivery type and location
-     * This method can be used for quick promise date calculations without creating a full plan
-     */
-    public LocalDateTime calculatePromiseDateForDeliveryType(String deliveryType, Location location, Inventory inventory) {
-        LocalDateTime now = LocalDateTime.now();
-        
-        LocalDateTime shipDate = calculateEstimatedShipDate(now, inventory.getProcessingTime());
-        LocalDateTime deliveryDate = calculateEstimatedDeliveryDate(shipDate, location.getTransitTime());
-        
-        return calculatePromiseDate(deliveryDate, deliveryType);
-    }
-
-    /**
-     * Checks if a promise date can be met for a given delivery type and location
-     */
-    public boolean canMeetPromiseDate(LocalDateTime requestedPromiseDate, String deliveryType, Location location, Inventory inventory) {
-        LocalDateTime calculatedPromiseDate = calculatePromiseDateForDeliveryType(deliveryType, location, inventory);
-        return calculatedPromiseDate.isBefore(requestedPromiseDate) || calculatedPromiseDate.isEqual(requestedPromiseDate);
-    }
-
-    /**
-     * Gets the latest possible promise date for same day delivery
-     */
-    public LocalDateTime getLatestSameDayPromise() {
-        return LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
-    }
-
-    /**
-     * Calculates business days between two dates
-     */
-    public long calculateBusinessDaysBetween(LocalDateTime start, LocalDateTime end) {
-        long totalDays = ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate());
-        long businessDays = 0;
-        
-        LocalDateTime current = start;
-        for (int i = 0; i < totalDays; i++) {
-            if (current.getDayOfWeek() != DayOfWeek.SATURDAY && current.getDayOfWeek() != DayOfWeek.SUNDAY) {
-                businessDays++;
-            }
-            current = current.plusDays(1);
-        }
-        
-        return businessDays;
-    }
-
-    /**
-     * Calculates promise dates for individual quantities of an item
-     * This method considers batch processing and potential delays for higher quantities
-     */
-    public List<Map<String, Object>> calculateQuantityPromiseDates(OrderItem orderItem, Location location, Inventory inventory) {
-        List<Map<String, Object>> quantityPromises = new ArrayList<>();
-        
-        LocalDateTime basePromiseDate = calculatePromiseDateForDeliveryType(
-            orderItem.getDeliveryType(), location, inventory);
-        
-        for (int quantity = 1; quantity <= orderItem.getQuantity(); quantity++) {
-            Map<String, Object> quantityPromise = new HashMap<>();
-            quantityPromise.put("quantity", quantity);
-            
-            // For larger quantities, add processing buffer
-            LocalDateTime adjustedPromiseDate = adjustPromiseDateForQuantity(
-                basePromiseDate, quantity, orderItem.getDeliveryType(), inventory);
-            
-            quantityPromise.put("promiseDate", adjustedPromiseDate);
-            quantityPromise.put("estimatedShipDate", 
-                calculateEstimatedShipDate(LocalDateTime.now(), inventory.getProcessingTime()));
-            quantityPromise.put("estimatedDeliveryDate", 
-                calculateEstimatedDeliveryDate(
-                    (LocalDateTime) quantityPromise.get("estimatedShipDate"), 
-                    location.getTransitTime()));
-            
-            quantityPromises.add(quantityPromise);
-        }
-        
-        return quantityPromises;
-    }
-
-    /**
-     * Adjusts promise date based on quantity considerations
-     */
-    private LocalDateTime adjustPromiseDateForQuantity(LocalDateTime basePromiseDate, int quantity, 
-                                                      String deliveryType, Inventory inventory) {
-        LocalDateTime adjustedDate = basePromiseDate;
-        
-        // For quantities above certain thresholds, add processing buffer
-        if (quantity > 10) {
-            // Large quantities may require additional processing time
-            adjustedDate = adjustedDate.plusHours(12);
-        } else if (quantity > 5) {
-            // Medium quantities may require some additional time
-            adjustedDate = adjustedDate.plusHours(6);
-        }
-        
-        // Consider inventory availability
-        if (inventory.getQuantity() < quantity) {
-            // If inventory is insufficient, add backorder buffer
-            adjustedDate = adjustedDate.plusDays(3);
-        } else if (inventory.getQuantity() == quantity) {
-            // If using all available inventory, add small buffer
-            adjustedDate = adjustedDate.plusHours(4);
-        }
-        
-        // Same day delivery cannot be extended beyond the day
-        if ("SAME_DAY".equalsIgnoreCase(deliveryType)) {
-            LocalDateTime sameDayLimit = getLatestSameDayPromise();
-            if (adjustedDate.isAfter(sameDayLimit)) {
-                // If we can't meet same day, move to next day
-                adjustedDate = sameDayLimit.plusDays(1).withHour(17).withMinute(0).withSecond(0);
-            }
-        }
-        
-        return adjustedDate;
-    }
-
-    /**
-     * Calculates staggered promise dates for multiple items with different quantities
-     * This is useful when items may be processed in batches
-     */
-    public List<Map<String, Object>> calculateStaggeredPromiseDates(List<OrderItem> orderItems, 
-                                                                   List<Location> locations, 
-                                                                   List<Inventory> inventories) {
-        List<Map<String, Object>> staggeredPromises = new ArrayList<>();
-        LocalDateTime currentProcessingTime = LocalDateTime.now();
-        
-        for (int i = 0; i < orderItems.size(); i++) {
-            OrderItem item = orderItems.get(i);
-            Location location = locations.get(i);
-            Inventory inventory = inventories.get(i);
-            
-            Map<String, Object> itemPromise = new HashMap<>();
-            itemPromise.put("sku", item.getSku());
-            itemPromise.put("deliveryType", item.getDeliveryType());
-            
-            // Calculate cumulative processing time for staggered fulfillment
-            LocalDateTime itemShipDate = calculateEstimatedShipDate(currentProcessingTime, inventory.getProcessingTime());
-            LocalDateTime itemDeliveryDate = calculateEstimatedDeliveryDate(itemShipDate, location.getTransitTime());
-            LocalDateTime itemPromiseDate = calculatePromiseDate(itemDeliveryDate, item.getDeliveryType());
-            
-            itemPromise.put("promiseDate", itemPromiseDate);
-            itemPromise.put("estimatedShipDate", itemShipDate);
-            itemPromise.put("estimatedDeliveryDate", itemDeliveryDate);
-            
-            // Calculate individual quantity promises for this item
-            List<Map<String, Object>> quantityPromises = calculateQuantityPromiseDates(item, location, inventory);
-            itemPromise.put("quantityPromises", quantityPromises);
-            
-            staggeredPromises.add(itemPromise);
-            
-            // Update current processing time for next item
-            currentProcessingTime = itemShipDate.plusHours(2); // 2-hour buffer between items
-        }
-        
-        return staggeredPromises;
-    }
-
-    /**
      * Simplified promise date calculation: processing time + transit time
      */
+    @Override
     public PromiseDateBreakdown calculateEnhancedPromiseDate(OrderItemDTO orderItem, Location location, 
                                                            Inventory inventory, OrderDTO orderContext) {
         try {
@@ -326,11 +53,10 @@ public class PromiseDateServiceImpl implements PromiseDateService {
             LocalDateTime estimatedDeliveryDate = processingComplete.plusHours(transitHours);
             
             // Step 4: Promise date = delivery date (no additional buffer)
-            LocalDateTime promiseDate = estimatedDeliveryDate;
-            
+
             // Build simple breakdown
             return PromiseDateBreakdown.builder()
-                    .promiseDate(promiseDate)
+                    .promiseDate(estimatedDeliveryDate)
                     .carrierPickupTime(processingComplete)
                     .estimatedDeliveryDate(estimatedDeliveryDate)
                     .locationProcessingHours(processingHours)
@@ -349,6 +75,7 @@ public class PromiseDateServiceImpl implements PromiseDateService {
     /**
      * Batch promise date calculation for multiple items
      */
+    @Override
     public CompletableFuture<Map<String, PromiseDateBreakdown>> batchCalculatePromiseDates(
             List<OrderItemDTO> orderItems, Map<String, List<Location>> filterResults, 
             Map<String, List<Inventory>> inventoryResults, OrderDTO orderContext) {

@@ -1,0 +1,807 @@
+{
+	"info": {
+		"_postman_id": "order-sourcing-engine-api",
+		"name": "Order Sourcing Engine API",
+		"description": "Comprehensive API collection for the Order Sourcing Engine - a high-performance Spring Boot application that optimizes order fulfillment by intelligently selecting the best locations to fulfill customer orders.\n\n## Features\n- Sub-50ms response times through advanced caching\n- Configurable scoring systems\n- Intelligent batch processing\n- Location filtering with AviatorScript\n- Same-day delivery optimization\n\n## Base URL\n`http://localhost:8081/api/sourcing`\n\n## Authentication\nNo authentication required for testing.\n\n## Variables\n- `{{baseUrl}}`: Base URL of the API (default: http://localhost:8081)\n- `{{timestamp}}`: Dynamic timestamp for unique order IDs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "01 - Basic Scenarios",
+			"item": [
+				{
+					"name": "PDP Single Product",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate dynamic timestamp for unique order ID",
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response time is under 50ms', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(50);",
+									"});",
+									"",
+									"pm.test('Response has correct structure', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('orderId');",
+									"    pm.expect(response).to.have.property('processingTimeMs');",
+									"    pm.expect(response).to.have.property('fulfillmentPlans');",
+									"    pm.expect(response.fulfillmentPlans).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"PDP_SINGLE_{{timestamp}}\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 1,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\"\n    }\n  ],\n  \"customerId\": \"CUST_001\",\n  \"customerTier\": \"STANDARD\",\n  \"orderType\": \"WEB\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Customer viewing a single product, checking availability\n\n**Expected Response Time:** 15-40ms (Sequential Processing)\n\n**Processing Strategy:** Sequential - optimized for speed with single item requests."
+					}
+				},
+				{
+					"name": "Mixed Shopping Cart",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response time is under 100ms', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(100);",
+									"});",
+									"",
+									"pm.test('Multiple fulfillment plans returned', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.fulfillmentPlans.length).to.equal(3);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"MIXED_CART_{{timestamp}}\",\n  \"latitude\": 40.7489,\n  \"longitude\": -73.9857,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 2,\n      \"deliveryType\": \"SAME_DAY\",\n      \"locationFilterId\": \"SDD_FILTER_RULE\",\n      \"scoringConfigurationId\": \"EXPRESS_DELIVERY_SCORING\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\",\n      \"requiresSignature\": false\n    },\n    {\n      \"sku\": \"LAPTOP456\",\n      \"quantity\": 1,\n      \"deliveryType\": \"NEXT_DAY\",\n      \"locationFilterId\": \"ELECTRONICS_SECURE_RULE\",\n      \"scoringConfigurationId\": \"ELECTRONICS_PREMIUM_SCORING\",\n      \"productCategory\": \"ELECTRONICS_COMPUTER\",\n      \"specialHandling\": \"HIGH_VALUE\",\n      \"requiresSignature\": true\n    },\n    {\n      \"sku\": \"HEADPHONES101\",\n      \"quantity\": 3,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_AUDIO\",\n      \"allowPartialFulfillment\": true\n    }\n  ],\n  \"customerId\": \"CUST_002\",\n  \"customerTier\": \"PREMIUM\",\n  \"allowPartialShipments\": true,\n  \"orderType\": \"WEB\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Customer with multiple items, different delivery requirements\n\n**Expected Response Time:** 40-80ms (Batch Processing)\n\n**Features Tested:**\n- Mixed delivery types (Same-Day, Next-Day, Standard)\n- Different scoring configurations\n- Partial fulfillment options\n- Premium customer tier"
+					}
+				}
+			],
+			"description": "Basic order sourcing scenarios covering single items and mixed carts with different delivery requirements."
+		},
+		{
+			"name": "02 - Business Use Cases",
+			"item": [
+				{
+					"name": "B2B Bulk Order",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response time is under 200ms', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(200);",
+									"});",
+									"",
+									"pm.test('Enterprise customer tier handled', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('fulfillmentPlans');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"B2B_BULK_{{timestamp}}\",\n  \"latitude\": 39.9526,\n  \"longitude\": -75.1652,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 100,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"B2B_DELIVERY_RULE\",\n      \"scoringConfigurationId\": \"B2B_BULK_SCORING\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\",\n      \"allowPartialFulfillment\": true,\n      \"preferSingleLocation\": false\n    },\n    {\n      \"sku\": \"LAPTOP456\",\n      \"quantity\": 50,\n      \"deliveryType\": \"NEXT_DAY\",\n      \"locationFilterId\": \"ELECTRONICS_SECURE_RULE\",\n      \"scoringConfigurationId\": \"B2B_BULK_SCORING\",\n      \"productCategory\": \"ELECTRONICS_COMPUTER\",\n      \"requiresSignature\": true,\n      \"specialHandling\": \"CORPORATE_DELIVERY\"\n    }\n  ],\n  \"customerId\": \"CORP_001\",\n  \"customerTier\": \"ENTERPRISE\",\n  \"allowPartialShipments\": true,\n  \"preferSingleLocation\": false,\n  \"orderType\": \"B2B\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Enterprise customer placing large quantity order\n\n**Expected Response Time:** 80-150ms (Batch Processing)\n\n**B2B Features:**\n- Large quantity handling (100+ items)\n- Enterprise customer tier\n- Corporate delivery requirements\n- Multi-location splitting allowed"
+					}
+				},
+				{
+					"name": "Electronics High-Value Order",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('High-value items handled securely', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.fulfillmentPlans).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"ELECTRONICS_PREMIUM_{{timestamp}}\",\n  \"latitude\": 37.7749,\n  \"longitude\": -122.4194,\n  \"orderItems\": [\n    {\n      \"sku\": \"LAPTOP_PRO_001\",\n      \"quantity\": 1,\n      \"deliveryType\": \"NEXT_DAY\",\n      \"locationFilterId\": \"ELECTRONICS_SECURE_RULE\",\n      \"scoringConfigurationId\": \"ELECTRONICS_PREMIUM_SCORING\",\n      \"productCategory\": \"ELECTRONICS_COMPUTER\",\n      \"specialHandling\": \"HIGH_VALUE\",\n      \"requiresSignature\": true\n    },\n    {\n      \"sku\": \"MONITOR_4K_001\",\n      \"quantity\": 2,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"ELECTRONICS_SECURE_RULE\",\n      \"scoringConfigurationId\": \"ELECTRONICS_PREMIUM_SCORING\",\n      \"productCategory\": \"ELECTRONICS_DISPLAY\",\n      \"specialHandling\": \"FRAGILE\"\n    }\n  ],\n  \"customerId\": \"PREMIUM_CUST_001\",\n  \"customerTier\": \"PREMIUM\",\n  \"allowPartialShipments\": false,\n  \"preferSingleLocation\": true,\n  \"orderType\": \"WEB\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Premium electronics requiring special handling\n\n**Expected Response Time:** 45-70ms (Batch Processing)\n\n**Security Features:**\n- High-value item handling\n- Electronics secure rule filtering\n- Signature required\n- Premium customer tier\n- Single location preference"
+					}
+				},
+				{
+					"name": "Peak Season Order",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Peak season constraints handled', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('fulfillmentPlans');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"PEAK_SEASON_{{timestamp}}\",\n  \"latitude\": 47.6062,\n  \"longitude\": -122.3321,\n  \"orderItems\": [\n    {\n      \"sku\": \"GIFT_CARD_001\",\n      \"quantity\": 1,\n      \"deliveryType\": \"NEXT_DAY\",\n      \"locationFilterId\": \"PEAK_SEASON_RULE\",\n      \"scoringConfigurationId\": \"PEAK_SEASON_SCORING\",\n      \"productCategory\": \"GIFT_CARDS\"\n    },\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 2,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"PEAK_SEASON_RULE\",\n      \"scoringConfigurationId\": \"PEAK_SEASON_SCORING\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\",\n      \"allowPartialFulfillment\": true\n    },\n    {\n      \"sku\": \"TOY_001\",\n      \"quantity\": 3,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"PEAK_SEASON_RULE\",\n      \"scoringConfigurationId\": \"PEAK_SEASON_SCORING\",\n      \"productCategory\": \"TOYS\"\n    }\n  ],\n  \"customerId\": \"HOLIDAY_CUST_001\",\n  \"customerTier\": \"STANDARD\",\n  \"isPeakSeason\": true,\n  \"allowPartialShipments\": true,\n  \"orderType\": \"WEB\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Holiday season order with capacity constraints\n\n**Expected Response Time:** 60-100ms (Batch Processing)\n\n**Peak Season Features:**\n- Special peak season scoring\n- Capacity constraint handling\n- Mixed product categories\n- Holiday-specific logistics"
+					}
+				}
+			],
+			"description": "Business-specific use cases including B2B orders, high-value electronics, and peak season scenarios."
+		},
+		{
+			"name": "03 - Same-Day Delivery",
+			"item": [
+				{
+					"name": "Same-Day Rush Order",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Same-day delivery optimized response time', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(40);",
+									"});",
+									"",
+									"pm.test('Same-day delivery timing', function () {",
+									"    const response = pm.response.json();",
+									"    if (response.fulfillmentPlans.length > 0) {",
+									"        const deliveryTiming = response.fulfillmentPlans[0].locationAllocations[0].deliveryTiming;",
+									"        pm.expect(deliveryTiming.transitTimeDays).to.be.at.most(1);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"SAME_DAY_RUSH_{{timestamp}}\",\n  \"latitude\": 34.0522,\n  \"longitude\": -118.2437,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 1,\n      \"deliveryType\": \"SAME_DAY\",\n      \"locationFilterId\": \"SDD_FILTER_RULE\",\n      \"scoringConfigurationId\": \"EXPRESS_DELIVERY_SCORING\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\",\n      \"requiresSignature\": false\n    }\n  ],\n  \"customerId\": \"URGENT_CUST_001\",\n  \"customerTier\": \"PREMIUM\",\n  \"orderType\": \"WEB\",\n  \"requestTimestamp\": \"2024-01-15T10:00:00\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Customer needs urgent same-day delivery\n\n**Expected Response Time:** 15-30ms (Sequential Processing)\n\n**Same-Day Features:**\n- Ultra-fast processing\n- Same-day delivery filter\n- Express delivery scoring\n- Time-sensitive logistics"
+					}
+				},
+				{
+					"name": "Same-Day Optimized (Nearest Location)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Nearest location prioritized', function () {",
+									"    const response = pm.response.json();",
+									"    if (response.fulfillmentPlans.length > 0) {",
+									"        const score = response.fulfillmentPlans[0].overallScore;",
+									"        pm.expect(score).to.be.above(80); // High score indicates good optimization",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"SAME_DAY_OPTIMIZED_{{timestamp}}\",\n  \"latitude\": 40.7589,\n  \"longitude\": -73.9851,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 1,\n      \"deliveryType\": \"SAME_DAY\",\n      \"locationFilterId\": \"SAME_DAY_DELIVERY_FILTER\",\n      \"scoringConfigurationId\": \"SAME_DAY_DELIVERY_SCORING\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\",\n      \"requiresSignature\": false,\n      \"allowPartialFulfillment\": false,\n      \"preferSingleLocation\": true\n    }\n  ],\n  \"customerId\": \"URGENT_CUSTOMER_001\",\n  \"customerTier\": \"PREMIUM\",\n  \"allowPartialShipments\": false,\n  \"preferSingleLocation\": true,\n  \"orderType\": \"WEB\",\n  \"requestTimestamp\": \"2024-01-15T11:30:00\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Customer needs same-day delivery, system should prioritize the nearest available location\n\n**Expected Behavior:**\n- Only considers locations within 30km radius\n- Only locations with transit time ≤ 1 day\n- Heavily penalizes distance (nearest location wins)\n- Prefers single location fulfillment\n- High confidence in delivery promises\n\n**Configuration:**\n- Uses SAME_DAY_DELIVERY_FILTER for geographic constraints\n- Uses SAME_DAY_DELIVERY_SCORING for nearest location priority"
+					}
+				},
+				{
+					"name": "Same-Day Multi-Item",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Multiple items handled for same-day', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.fulfillmentPlans.length).to.equal(2);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"SAME_DAY_MULTI_{{timestamp}}\",\n  \"latitude\": 34.0522,\n  \"longitude\": -118.2437,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 1,\n      \"deliveryType\": \"SAME_DAY\",\n      \"locationFilterId\": \"SAME_DAY_DELIVERY_FILTER\",\n      \"scoringConfigurationId\": \"SAME_DAY_DELIVERY_SCORING\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\"\n    },\n    {\n      \"sku\": \"HEADPHONES101\",\n      \"quantity\": 1,\n      \"deliveryType\": \"SAME_DAY\",\n      \"locationFilterId\": \"SAME_DAY_DELIVERY_FILTER\",\n      \"scoringConfigurationId\": \"SAME_DAY_DELIVERY_SCORING\",\n      \"productCategory\": \"ELECTRONICS_AUDIO\"\n    }\n  ],\n  \"customerId\": \"SAME_DAY_CUSTOMER_002\",\n  \"customerTier\": \"STANDARD\",\n  \"allowPartialShipments\": false,\n  \"preferSingleLocation\": true,\n  \"orderType\": \"WEB\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Multiple items requiring same-day delivery from nearest location\n\n**Features:**\n- Multiple items with same-day requirement\n- Optimized scoring for nearest location\n- Single location preference\n- Standard customer tier handling"
+					}
+				}
+			],
+			"description": "Same-day delivery scenarios optimized for nearest location selection and ultra-fast processing."
+		},
+		{
+			"name": "04 - Performance Testing",
+			"item": [
+				{
+					"name": "Large Performance Test Order",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Large order processed within acceptable time', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(400);",
+									"});",
+									"",
+									"pm.test('All items processed', function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.fulfillmentPlans.length).to.equal(7);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"PERFORMANCE_TEST_{{timestamp}}\",\n  \"latitude\": 33.4484,\n  \"longitude\": -112.0740,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 5,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\"\n    },\n    {\n      \"sku\": \"LAPTOP456\",\n      \"quantity\": 3,\n      \"deliveryType\": \"NEXT_DAY\",\n      \"locationFilterId\": \"ELECTRONICS_SECURE_RULE\",\n      \"productCategory\": \"ELECTRONICS_COMPUTER\"\n    },\n    {\n      \"sku\": \"TABLET789\",\n      \"quantity\": 8,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_TABLET\"\n    },\n    {\n      \"sku\": \"HEADPHONES101\",\n      \"quantity\": 12,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_AUDIO\"\n    },\n    {\n      \"sku\": \"MONITOR_001\",\n      \"quantity\": 4,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"ELECTRONICS_SECURE_RULE\",\n      \"productCategory\": \"ELECTRONICS_DISPLAY\"\n    },\n    {\n      \"sku\": \"KEYBOARD_001\",\n      \"quantity\": 10,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_ACCESSORY\"\n    },\n    {\n      \"sku\": \"MOUSE_001\",\n      \"quantity\": 15,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_ACCESSORY\"\n    }\n  ],\n  \"customerId\": \"PERF_TEST_USER\",\n  \"customerTier\": \"STANDARD\",\n  \"allowPartialShipments\": true,\n  \"orderType\": \"WEB\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Stress testing with many items\n\n**Expected Response Time:** 150-300ms (Batch Processing)\n\n**Performance Test Features:**\n- 7 different SKUs\n- Total of 57 units\n- Mixed delivery types\n- Multiple product categories\n- Batch processing optimization"
+					}
+				},
+				{
+					"name": "Multi-Location Split Required",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.globals.set('timestamp', Date.now());"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Large quantity handled', function () {",
+									"    const response = pm.response.json();",
+									"    if (response.fulfillmentPlans.length > 0) {",
+									"        const plan = response.fulfillmentPlans[0];",
+									"        pm.expect(plan.requestedQuantity).to.equal(75);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"MULTI_LOCATION_{{timestamp}}\",\n  \"latitude\": 42.3601,\n  \"longitude\": -71.0589,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 75,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\",\n      \"productCategory\": \"ELECTRONICS_MOBILE\",\n      \"allowPartialFulfillment\": true,\n      \"preferSingleLocation\": false\n    }\n  ],\n  \"customerId\": \"DISTRIBUTOR_001\",\n  \"customerTier\": \"ENTERPRISE\",\n  \"allowPartialShipments\": true,\n  \"preferSingleLocation\": false,\n  \"orderType\": \"B2B\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Use Case:** Large quantity requiring multiple locations\n\n**Expected Response Time:** 80-120ms (Batch Processing)\n\n**Multi-Location Features:**\n- Single SKU with large quantity (75 units)\n- Enterprise customer\n- Multi-location splitting allowed\n- Partial fulfillment enabled"
+					}
+				}
+			],
+			"description": "Performance testing scenarios with large orders and high-volume processing."
+		},
+		{
+			"name": "05 - Error Scenarios",
+			"item": [
+				{
+					"name": "Missing Required Fields",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status is 400 (Bad Request)', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Error response structure', function () {",
+									"    // Test should expect error response format",
+									"    pm.expect(pm.response.text()).to.include('locationFilterId');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"ERROR_TEST_002\",\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 1,\n      \"deliveryType\": \"STANDARD\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Test Case:** Missing required locationFilterId field\n\n**Expected Result:** HTTP 400 Bad Request\n\n**Purpose:** Validate API input validation and error handling for missing required fields."
+					}
+				},
+				{
+					"name": "Invalid Coordinates",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Response status indicates error handling', function () {",
+									"    // May return 400 for validation or 200 with empty results",
+									"    pm.expect([200, 400]).to.include(pm.response.code);",
+									"});",
+									"",
+									"pm.test('Invalid coordinates handled gracefully', function () {",
+									"    if (pm.response.code === 200) {",
+									"        const response = pm.response.json();",
+									"        // Should return empty fulfillment plans for invalid coordinates",
+									"        pm.expect(response.fulfillmentPlans).to.be.an('array');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tempOrderId\": \"ERROR_TEST_003\",\n  \"latitude\": 200.0,\n  \"longitude\": -74.0060,\n  \"orderItems\": [\n    {\n      \"sku\": \"PHONE123\",\n      \"quantity\": 1,\n      \"deliveryType\": \"STANDARD\",\n      \"locationFilterId\": \"STANDARD_DELIVERY_RULE\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sourcing/source",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sourcing",
+								"source"
+							]
+						},
+						"description": "**Test Case:** Invalid latitude coordinate (200.0)\n\n**Expected Result:** Error handling or empty results\n\n**Purpose:** Test system resilience with invalid geographic data."
+					}
+				}
+			],
+			"description": "Error scenarios to test API validation and error handling capabilities."
+		},
+		{
+			"name": "06 - Health Check",
+			"item": [
+				{
+					"name": "Service Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Service is healthy', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Health check response time', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(1000);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "**Purpose:** Verify the Order Sourcing Engine service is running and healthy\n\n**Expected Response:** HTTP 200 with health status\n\n**Usage:** Run this before executing other API tests to ensure service availability."
+					}
+				}
+			],
+			"description": "Health check endpoints to verify service status and availability."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "global-prerequest",
+				"exec": [
+					"// Global pre-request script",
+					"// Set default baseUrl if not already set",
+					"if (!pm.globals.get('baseUrl')) {",
+					"    pm.globals.set('baseUrl', 'http://localhost:8081');",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "global-test",
+				"exec": [
+					"// Global test script",
+					"// Log response time for performance monitoring",
+					"console.log(`Request: ${pm.info.requestName}, Response Time: ${pm.response.responseTime}ms`);",
+					"",
+					"// Common response structure validation",
+					"if (pm.response.code === 200 && pm.response.json) {",
+					"    try {",
+					"        const response = pm.response.json();",
+					"        pm.test('Response has required structure', function() {",
+					"            pm.expect(response).to.be.an('object');",
+					"        });",
+					"    } catch (e) {",
+					"        console.log('Response is not JSON');",
+					"    }",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8081",
+			"type": "string"
+		}
+	]
+}
